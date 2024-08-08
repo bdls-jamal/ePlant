@@ -8,6 +8,7 @@ import FallbackView from './views/FallbackView'
 import GeneInfoView from './views/GeneInfoView'
 import GetStartedView from './views/GetStartedView'
 import NavigatorView from './views/NavigatorViewer'
+import InteractionsViewer from './views/InteractionsViewer'
 import PlantEFP from './views/PlantEFP'
 import PublicationViewer from './views/PublicationViewer'
 import WorldEFP from './views/WorldEFP'
@@ -37,6 +38,7 @@ const userViews = [
   WorldEFP,
   ChromosomeViewer,
   NavigatorView,
+  InteractionsViewer
 ]
 
 // List of views that are used to lookup a view by id
