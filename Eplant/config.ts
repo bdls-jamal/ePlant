@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react'
 import CellEFP from './views/CellEFP'
 import ChromosomeViewer from './views/ChromosomeViewer'
 import DebugView from './views/DebugView'
+import Dendrogram from './views/TestClusterView'
 import ExperimentEFP from './views/ExperimentEFP'
 import FallbackView from './views/FallbackView'
 import GeneInfoView from './views/GeneInfoView'
@@ -35,6 +36,7 @@ const userViews = [
   ExperimentEFP,
   ChromosomeViewer,
   NavigatorView,
+  Dendrogram,
 ]
 
 // List of views that are used to lookup a view by id
