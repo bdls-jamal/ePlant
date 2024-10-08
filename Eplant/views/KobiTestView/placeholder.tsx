@@ -8,6 +8,7 @@ interface NodeData {
     length?: number;
   };
   children?: NodeData[];
+  depth?: number; // Add depth to interface
 }
 
 interface CustomNodeProps {
@@ -16,18 +17,15 @@ interface CustomNodeProps {
 }
 
 const CustomNode: React.FC<CustomNodeProps> = ({ nodeDatum, toggleNode }) => {
-  // Determine if this is a leaf node
   const isLeafNode = !nodeDatum.children || nodeDatum.children.length === 0;
 
   return (
     <g className="node-container">
       <circle
         r={10}
-        fill="#69b3a2"
+        fill={isLeafNode ? "#69b3a2" : "#4a5568"}
         onClick={toggleNode}
       />
-     
-      {/* Only render text if there's a valid gene name */}
       {nodeDatum.name && nodeDatum.name !== "Unnamed" && (
         <text
           dy=".31em"
@@ -39,13 +37,11 @@ const CustomNode: React.FC<CustomNodeProps> = ({ nodeDatum, toggleNode }) => {
           {nodeDatum.name}
         </text>
       )}
-     
-      {/* Show "Expression Data" only for leaf nodes */}
       {isLeafNode && (
         <foreignObject
           width={200}
           height={100}
-          x={150}  /* Move the foreignObject to the right of the node */
+          x={150}
           y={-10}
         >
           <div className="node-extension">
@@ -59,14 +55,10 @@ const CustomNode: React.FC<CustomNodeProps> = ({ nodeDatum, toggleNode }) => {
   );
 };
 
+
 const NavigatorView = () => {
   const [treeData, setTreeData] = useState<NodeData | null>(null);
   
-  const containerStyles: React.CSSProperties = {
-    width: '100%',
-    height: '500px',
-  };
-
   useEffect(() => {
     const newickData = "((AT3G24650:0.54188,((Potri.002G252000.1:0.43277,VIT_07s0005g05400:0.43277):0.07324,(Medtr7g059330.1:0.40126,(Glyma.08G357600:0.09194,Glyma.18G176100:0.09194):0.30932):0.10475):0.03587):0.03552,((PGSC0003DMP400034979:0.06033,Solyc06g083600:0.06033):0.24363,(PGSC0003DMP400034841:0.09346,Solyc06g083590:0.09346):0.21050):0.27344);";
    
@@ -77,23 +69,26 @@ const NavigatorView = () => {
         !Array.from(parsedTree.graph[1]).some(arc => arc[1] === vertex)
       );
 
+      
+      
       const formatTreeData = (vertex: any): NodeData => {
+        const childArcs = Array.from(parsedTree.graph[1])
+          .filter(arc => arc[0] === vertex);
+        
         const node: NodeData = {
-          name: vertex.label || vertex.name || "",  // Changed to empty string instead of "Unnamed"
+          name: vertex.label || vertex.name || "",
           attributes: {
-            length: vertex.length || 0,
+            length: 1
           },
           children: [],
         };
-       
-        const childArcs = Array.from(parsedTree.graph[1])
-          .filter(arc => arc[0] === vertex);
-       
-        if (childArcs.length === 0) {
-          // For leaf nodes, extend the branch length to ensure alignment
-          node.attributes!.length = Math.max(node.attributes?.length || 0, 0.6);
-        }
-       
+
+        childArcs.sort((a, b) => {
+          const aLabel = a[1].label || "";
+          const bLabel = b[1].label || "";
+          return aLabel.localeCompare(bLabel);
+        });
+
         childArcs.forEach(arc => {
           const childVertex = arc[1];
           const childNode = formatTreeData(childVertex);
@@ -105,6 +100,7 @@ const NavigatorView = () => {
 
       if (rootVertex) {
         const formattedData = formatTreeData(rootVertex);
+      
         setTreeData(formattedData);
       }
     } catch (error) {
@@ -116,24 +112,32 @@ const NavigatorView = () => {
   const renderCustomNode = (props: CustomNodeProps) => <CustomNode {...props} />;
 
   return (
-    <div>
+    <div className="w-full h-screen">
       <h2 className="text-xl font-bold mb-4">Phylogenetic Tree</h2>
-      {treeData ? (
-        <div style={containerStyles}>
+      <div 
+        className="w-full" 
+        style={{ 
+          height: 'calc(100vh - 4rem)',
+          border: '1px solid #e5e7eb'
+        }}
+      >
+        {treeData && (
           <Tree
             data={treeData}
             orientation="horizontal"
             pathFunc="step"
             renderCustomNodeElement={renderCustomNode}
-            separation={{ siblings: 2, nonSiblings: 2 }}
-            nodeSize={{ x: 200, y: 60 }}  // Increased nodeSize x for better spacing
-            translate={{ x: 100, y: 200 }}
+            separation={{ siblings: 2, nonSiblings: 2.5 }}
+            nodeSize={{ x: 300, y: 80 }}
+            translate={{ x: 150, y: 300 }}
+            scaleExtent={{ min: 0.1, max: 2 }}
             enableLegacyTransitions={false}
+            collapsible={true}
+            zoomable={true}
+            draggable={true}
           />
-        </div>
-      ) : (
-        <p>Loading...</p>
-      )}
+        )}
+      </div>
     </div>
   );
 };

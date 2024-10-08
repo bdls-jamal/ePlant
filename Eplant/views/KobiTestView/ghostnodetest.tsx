@@ -19,6 +19,9 @@ interface CustomNodeProps {
 const CustomNode: React.FC<CustomNodeProps> = ({ nodeDatum, toggleNode }) => {
   const isLeafNode = !nodeDatum.children || nodeDatum.children.length === 0;
 
+  // Ignore ghost nodes
+  if (nodeDatum.name === "ghost") return null;
+
   return (
     <g className="node-container">
       <circle
@@ -69,7 +72,30 @@ const NavigatorView = () => {
         !Array.from(parsedTree.graph[1]).some(arc => arc[1] === vertex)
       );
 
-      
+      // Function to find the maximum depth in the tree
+      const findMaxDepth = (node: NodeData): number => {
+        if (!node.children || node.children.length === 0) return 0;
+        return 1 + Math.max(...node.children.map(child => findMaxDepth(child)));
+      };
+
+      // Function to set all leaf nodes to the same depth
+      const alignLeafNodes = (node: NodeData, maxDepth: number, currentDepth = 0): NodeData => {
+        const isLeaf = !node.children || node.children.length === 0;
+        
+        if (isLeaf) {
+          
+          const depthNeeded = maxDepth - currentDepth;
+          let tempNode = node;
+          for (let i = 0; i < depthNeeded; i++) {
+            tempNode.children = [{ name: "ghost", attributes: { length: 0 }, children: [] }];
+            tempNode = tempNode.children[0];
+          }
+          return node; // Return modified node
+        } else {
+          node.children = node.children?.map(child => alignLeafNodes(child, maxDepth, currentDepth + 1)) || [];
+          return node; // Return modified non-leaf node
+        }
+      };
       
       const formatTreeData = (vertex: any): NodeData => {
         const childArcs = Array.from(parsedTree.graph[1])
@@ -99,8 +125,9 @@ const NavigatorView = () => {
       };
 
       if (rootVertex) {
-        const formattedData = formatTreeData(rootVertex);
-      
+        let formattedData = formatTreeData(rootVertex);
+        const maxDepth = findMaxDepth(formattedData);
+        formattedData = alignLeafNodes(formattedData, maxDepth); // Align with ghost nodes
         setTreeData(formattedData);
       }
     } catch (error) {
