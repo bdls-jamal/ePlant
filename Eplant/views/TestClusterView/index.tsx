@@ -5,19 +5,7 @@ import ReactDOM from 'react-dom/client';
 import { View } from '@eplant/View';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 
-import { data } from "./data";
 import Dendrogram from './Dendrogram';
-
-
-// const App = () => (
-//   <div>
-//     <h1>Horizontal Dendrogram</h1>
-//     <Dendrogram data={data} width={600} height={400}/>
-// </div>
-// );
-
-// const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
-// root.render(<App />);
 
 const TestClusterView: View = {
   name: 'Cluster View',
