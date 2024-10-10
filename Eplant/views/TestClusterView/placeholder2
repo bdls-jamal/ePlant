@@ -102,60 +102,53 @@ function newickToD3(newickString: string, metadata: TreeData): D3Node {
 const MetadataVisualizations = ({ 
   x, 
   y, 
-  metadata 
+  metadata,
+  isPrimaryGene
 }: { 
   x: number; 
   y: number; 
-  metadata: D3Node['metadata'] 
+  metadata: D3Node['metadata'];
+  isPrimaryGene: boolean;
 }) => {
   if (!metadata) return null;
 
-  const spacing = 25;
-  
+  // Dynamically set bar widths based on metadata, but limit width to avoid full span bars
+  const sequenceSimilarity = Math.min(isPrimaryGene ? 1 : (metadata.sequence_similarity || 0), 1);
+  const expressionLevel = Math.min(isPrimaryGene ? 1 : (metadata.scc_value || 0), 1);
+
   return (
-    <g transform={`translate(${x + 120}, ${y})`}>
-      {/* SCC Value Visualization */}
-      {metadata.scc_value !== undefined && (
-        <g transform={`translate(0, -10)`}>
+    <g transform={`translate(${x + LABEL_OFFSET + 100}, ${y - BAR_HEIGHT - BAR_SPACING})`}>
+      
+      {/* Expression Level Bar */}
+      <g transform={`translate(0, ${BAR_HEIGHT + BAR_SPACING})`}>
+        {/* Grey background bar for the primary gene only */}
           <rect
             x={0}
             y={0}
-            width={50}
-            height={10}
-            fill={d3.interpolateRdYlBu(metadata.scc_value)}
-            stroke="#666"
+            width={BAR_WIDTH} // Background bar for primary gene
+            height={BAR_HEIGHT}
+            fill="#e0e0e0"
+            stroke="#999"
+            strokeWidth={0.5}
           />
-          <text
-            x={55}
-            y={8}
-            fontSize={10}
-            textAnchor="start"
-          >
-            SCC: {metadata.scc_value.toFixed(2)}
-          </text>
-        </g>
-      )}
-      
-      {/* Sequence Similarity Visualization */}
-      {metadata.sequence_similarity !== undefined && (
-        <g transform={`translate(0, 5)`}>
-          <circle
-            cx={5}
-            cy={0}
-            r={5}
-            fill={d3.interpolateViridis(metadata.sequence_similarity)}
-            stroke="#666"
-          />
-          <text
-            x={15}
-            y={4}
-            fontSize={10}
-            textAnchor="start"
-          >
-            Sim: {(metadata.sequence_similarity * 100).toFixed(1)}%
-          </text>
-        </g>
-      )}
+        {/* Foreground black bar with dynamic width */}
+        <rect
+          x={BAR_WIDTH / 2}
+          y={0}
+          width={(BAR_WIDTH / 2) * expressionLevel} // Limits the width based on expressionLevel value
+          height={BAR_HEIGHT}
+          fill="#000000"
+        />
+        {/* Center line for expression comparison */}
+        <line
+          x1={BAR_WIDTH / 2}
+          y1={-1}
+          x2={BAR_WIDTH / 2}
+          y2={BAR_HEIGHT + 1}
+          stroke="red"
+          strokeWidth={1}
+        />
+      </g>
     </g>
   );
 };
@@ -220,7 +213,7 @@ export const Dendrogram = () => {
     return dendrogramGenerator(hierarchy);
   }, [hierarchy, dimensions.boundsWidth, dimensions.boundsHeight]);
 
-  // Setup zoom behavior
+  // Zoom and drag effects
   useEffect(() => {
     if (!svgRef.current || !gRef.current || !dimensions.width) return;
 
