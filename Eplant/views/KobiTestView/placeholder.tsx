@@ -8,7 +8,6 @@ interface NodeData {
     length?: number;
   };
   children?: NodeData[];
-  depth?: number; // Add depth to interface
 }
 
 interface CustomNodeProps {
@@ -69,8 +68,6 @@ const NavigatorView = () => {
         !Array.from(parsedTree.graph[1]).some(arc => arc[1] === vertex)
       );
 
-      
-      
       const formatTreeData = (vertex: any): NodeData => {
         const childArcs = Array.from(parsedTree.graph[1])
           .filter(arc => arc[0] === vertex);
