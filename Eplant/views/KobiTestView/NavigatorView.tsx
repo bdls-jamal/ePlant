@@ -79,7 +79,7 @@ const NavigatorView = () => {
 
   useEffect(() => {
     const newickData = "((AT3G24650:0.54188,((Potri.002G252000.1:0.43277,VIT_07s0005g05400:0.43277):0.07324,(Medtr7g059330.1:0.40126,(Glyma.08G357600:0.09194,Glyma.18G176100:0.09194):0.30932):0.10475):0.03587):0.03552,((PGSC0003DMP400034979:0.06033,Solyc06g083600:0.06033):0.24363,(PGSC0003DMP400034841:0.09346,Solyc06g083590:0.09346):0.21050):0.27344);";
-   
+  
     try {
       const parsedTree = parse(newickData);
       const vertices = Array.from(parsedTree.graph[0]);
