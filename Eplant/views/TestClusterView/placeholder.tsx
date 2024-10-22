@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext,useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
 import * as d3 from "d3";
+
+import { DendrogramContext } from './index';
 
 const MARGIN = { top: 50, right: 400, bottom: 50, left: 50 };
 const MIN_NODE_SPACING = 30;
 const DEFAULT_WIDTH = 1200;
 const DEFAULT_HEIGHT = 600;
-
-// Constants for visualization
 const BAR_WIDTH = 100;
 const BAR_HEIGHT = 12;
 const BAR_SPACING = 2;
@@ -18,6 +18,11 @@ const DEFAULT_API_URL = 'https://bar.utoronto.ca/webservices/eplant_navigator/cg
 
 function extractPrimaryGene(url: string): string {
   const match = url.match(/primaryGene=([^&]+)/);
+  return match ? match[1] : "";
+}
+
+function extractSpecies(url: string): string {
+  const match = url.match(/species=([^&]+)/);
   return match ? match[1] : "";
 }
 
@@ -42,8 +47,7 @@ interface D3Node {
   };
 }
 
-// Convert newick format data into D3 applicable data
-function newickToD3(newickString: string, metadata: TreeData): D3Node {
+function newickToD3(newickString: string, metadata: TreeData, primaryGene: string, species: string): D3Node {
   const cleaned = newickString.trim().replace(/;$/, "");
   
   function parseNode(str: string): D3Node {
@@ -51,12 +55,13 @@ function newickToD3(newickString: string, metadata: TreeData): D3Node {
       const [name, lengthStr] = str.split(":");
       const cleanName = name.trim();
       const upperName = cleanName.toUpperCase();
+      const isPrimaryGene = upperName === primaryGene.toUpperCase();
       
       return {
         name: cleanName,
         value: lengthStr ? parseFloat(lengthStr) : undefined,
         metadata: {
-          genome: metadata.genomes[upperName],
+          genome: isPrimaryGene ? species : metadata.genomes[upperName],
           scc_value: metadata.SCC_values[upperName],
           sequence_similarity: metadata.sequence_similarity[upperName],
           efp_link: metadata.efp_links[upperName]
@@ -150,8 +155,9 @@ export const Dendrogram = () => {
   const gRef = useRef<SVGGElement | null>(null);
   const [treeData, setTreeData] = useState<TreeData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [apiUrl, setApiUrl] = useState<string>(DEFAULT_API_URL);
-  const [primaryGene, setPrimaryGene] = useState<string>(extractPrimaryGene(DEFAULT_API_URL));
+  const { apiUrl } = useContext(DendrogramContext);
+  const [primaryGene, setPrimaryGene] = useState<string>(extractPrimaryGene(apiUrl));
+  const [species, setSpecies] = useState<string>(extractSpecies(apiUrl));
   const [transform, setTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
 
   const [dimensions, setDimensions] = useState({ 
@@ -163,6 +169,7 @@ export const Dendrogram = () => {
 
   useEffect(() => {
     setPrimaryGene(extractPrimaryGene(apiUrl));
+    setSpecies(extractSpecies(apiUrl));
   }, [apiUrl]);
 
   useEffect(() => {
@@ -182,41 +189,62 @@ export const Dendrogram = () => {
       }
     };
     fetchData();
+
+    // Cleanup to prevent weird behavior on reloads
+    return () => {
+      setTreeData(null);
+      setError(null);
+      if (svgRef.current) {
+        d3.select(svgRef.current).selectAll("*").remove(); // Clear the SVG on cleanup
+      }
+    };
   }, [apiUrl]);
 
   const hierarchy = useMemo(() => {
     if (!treeData) return null;
     try {
-      const d3Data = newickToD3(treeData.tree, treeData);
-      return d3.hierarchy(d3Data);
+      const d3Data = newickToD3(treeData.tree, treeData, primaryGene, species);
+      const hierarchyData = d3.hierarchy(d3Data);
+      
+      hierarchyData.sort((a, b) => {
+        const aName = a.leaves()[0]?.data.name || '';
+        const bName = b.leaves()[0]?.data.name || '';
+        return bName.localeCompare(aName);
+      });
+      
+      return hierarchyData;
     } catch (error) {
       console.error("Error parsing Newick string:", error);
       return null;
     }
-  }, [treeData]);
+  }, [treeData, primaryGene, species]);
 
   const dendrogram = useMemo(() => {
     if (!dimensions.boundsHeight || !dimensions.boundsWidth || !hierarchy) return null;
 
     const dendrogramGenerator = d3
       .cluster<D3Node>()
-      .size([dimensions.boundsHeight * 0.8, dimensions.boundsWidth * 0.4]);
+      .size([dimensions.boundsHeight * 0.8, dimensions.boundsWidth * 0.4])
+      .separation(() => 1);
 
-    return dendrogramGenerator(hierarchy);
+    const processedDendrogram = dendrogramGenerator(hierarchy);
+    const maxX = Math.max(...processedDendrogram.descendants().map(d => d.y));
+
+    processedDendrogram.descendants().forEach(node => {
+      if (!node.children) {
+        node.y = maxX;
+      } else {
+        const depthRatio = node.depth / processedDendrogram.height;
+        node.y = maxX * depthRatio;
+
+        node.children.forEach(child => {
+          (child as any).parentY = node.y;
+        });
+      }
+    });
+
+    return processedDendrogram;
   }, [hierarchy, dimensions.boundsWidth, dimensions.boundsHeight]);
-
-  const rightAngledLinkGenerator = (source: any, target: any) => {
-    const sourceX = source.x;
-    const sourceY = source.y;
-    const targetX = target.x;
-    const targetY = target.y;
-    
-    const midY = (sourceY + targetY) / 2;
-    return `M${sourceY},${sourceX}
-            L${midY},${sourceX}
-            L${midY},${targetX}
-            L${targetY},${targetX}`;
-  };
 
   if (error) {
     return <div className="error-message">Error: {error}</div>;
@@ -231,7 +259,14 @@ export const Dendrogram = () => {
   }
 
   const allNodes = dendrogram.descendants().map((node) => {
-    const isPrimaryGene = node.data.name === primaryGene;
+    const isPrimaryGene = node.data.name.toUpperCase() === primaryGene.toUpperCase();
+    let displayName = node.data.name;
+    
+    // Only add genome info for leaf nodes (nodes without children)
+    if (!node.children && node.data.metadata?.genome) {
+      displayName = `${node.data.name} (${node.data.metadata.genome})`;
+    }
+    
     return (
       <g key={node.data.name} className="node">
         <circle
@@ -251,7 +286,7 @@ export const Dendrogram = () => {
               dominantBaseline="middle"
               fontWeight={isPrimaryGene ? "bold" : "normal"}
             >
-              {`${node.data.name}${node.data.metadata?.genome ? ` (${node.data.metadata.genome})` : ''}`}
+              {displayName}
             </text>
             <MetadataVisualizations
               x={node.y + LABEL_OFFSET * 20}
@@ -265,15 +300,24 @@ export const Dendrogram = () => {
     );
   });
 
-  const allEdges = dendrogram.links().map((link) => (
-    <path
-      key={`${link.source.data.name}-${link.target.data.name}`}
-      fill="none"
-      stroke="#999"
-      strokeWidth={1}
-      d={rightAngledLinkGenerator(link.source, link.target)}
-    />
-  ));
+  const allEdges = dendrogram.links().map((link) => {
+    const path = `
+      M${link.source.y},${link.source.x}
+      H${(link as any).target.parentY}
+      V${link.target.x}
+      H${link.target.y}
+    `;
+    
+    return (
+      <path
+        key={`${link.source.data.name}-${link.target.data.name}`}
+        fill="none"
+        stroke="#999"
+        strokeWidth={1}
+        d={path}
+      />
+    );
+  });
 
   return (
     <div 
