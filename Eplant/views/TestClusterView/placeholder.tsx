@@ -14,10 +14,8 @@ const BAR_SPACING = 2;
 const LABEL_OFFSET = 10;
 const NODE_RADIUS = 4;
 
-// Default API URL - can be modified later for dynamic updates
 const DEFAULT_API_URL = 'https://bar.utoronto.ca/webservices/eplant_navigator/cgi-bin/eplant_navigator_service.cgi?primaryGene=AT3G24650&species=Arabidopsis&dataset=Developmental&checkedspecies=arabidopsis_poplar_medicago_soybean_rice_barley_maize_potato_tomato_grape';
 
-// Helper function to extract primary gene from URL
 function extractPrimaryGene(url: string): string {
   const match = url.match(/primaryGene=([^&]+)/);
   return match ? match[1] : "";
@@ -98,64 +96,50 @@ function newickToD3(newickString: string, metadata: TreeData): D3Node {
   return parseNode(cleaned);
 }
 
-// For SVG Element Appending
 const MetadataVisualizations = ({ 
   x, 
   y, 
-  metadata 
+  metadata,
+  isPrimaryGene
 }: { 
   x: number; 
   y: number; 
-  metadata: D3Node['metadata'] 
+  metadata: D3Node['metadata'];
+  isPrimaryGene: boolean;
 }) => {
   if (!metadata) return null;
 
-  const spacing = 25;
-  
+  const sequenceSimilarity = Math.min(isPrimaryGene ? 1 : (metadata.sequence_similarity || 0), 1);
+  const expressionLevel = Math.min(isPrimaryGene ? 1 : (metadata.scc_value || 0), 1);
+
   return (
-    <g transform={`translate(${x + 120}, ${y})`}>
-      {/* SCC Value Visualization */}
-      {metadata.scc_value !== undefined && (
-        <g transform={`translate(0, -10)`}>
-          <rect
-            x={0}
-            y={0}
-            width={50}
-            height={10}
-            fill={d3.interpolateRdYlBu(metadata.scc_value)}
-            stroke="#666"
-          />
-          <text
-            x={55}
-            y={8}
-            fontSize={10}
-            textAnchor="start"
-          >
-            SCC: {metadata.scc_value.toFixed(2)}
-          </text>
-        </g>
-      )}
-      
-      {/* Sequence Similarity Visualization */}
-      {metadata.sequence_similarity !== undefined && (
-        <g transform={`translate(0, 5)`}>
-          <circle
-            cx={5}
-            cy={0}
-            r={5}
-            fill={d3.interpolateViridis(metadata.sequence_similarity)}
-            stroke="#666"
-          />
-          <text
-            x={15}
-            y={4}
-            fontSize={10}
-            textAnchor="start"
-          >
-            Sim: {(metadata.sequence_similarity * 100).toFixed(1)}%
-          </text>
-        </g>
-      )}
+    <g transform={`translate(${x + LABEL_OFFSET + 100}, ${y - BAR_HEIGHT - BAR_SPACING})`}>
+      <g transform={`translate(0, ${BAR_HEIGHT + BAR_SPACING})`}>
+        <rect
+          x={0}
+          y={0}
+          width={BAR_WIDTH}
+          height={BAR_HEIGHT}
+          fill="#e0e0e0"
+          stroke="#999"
+          strokeWidth={0.5}
+        />
+        <rect
+          x={BAR_WIDTH / 2}
+          y={0}
+          width={(BAR_WIDTH / 2) * expressionLevel}
+          height={BAR_HEIGHT}
+          fill="#000000"
+        />
+        <line
+          x1={BAR_WIDTH / 2}
+          y1={-1}
+          x2={BAR_WIDTH / 2}
+          y2={BAR_HEIGHT + 1}
+          stroke="red"
+          strokeWidth={1}
+        />
+      </g>
     </g>
   );
 };
@@ -168,6 +152,7 @@ export const Dendrogram = () => {
   const [error, setError] = useState<string | null>(null);
   const [apiUrl, setApiUrl] = useState<string>(DEFAULT_API_URL);
   const [primaryGene, setPrimaryGene] = useState<string>(extractPrimaryGene(DEFAULT_API_URL));
+  const [transform, setTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
 
   const [dimensions, setDimensions] = useState({ 
     width: DEFAULT_WIDTH, 
@@ -220,46 +205,6 @@ export const Dendrogram = () => {
     return dendrogramGenerator(hierarchy);
   }, [hierarchy, dimensions.boundsWidth, dimensions.boundsHeight]);
 
-  // Setup zoom behavior
-  useEffect(() => {
-    if (!svgRef.current || !gRef.current || !dimensions.width) return;
-
-    const svg = d3.select(svgRef.current);
-    const g = d3.select(gRef.current);
-
-    const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.5, 5])
-      .on("zoom", (event) => {
-        g.attr("transform", event.transform.toString());
-      });
-
-    svg.call(zoom);
-
-    svg.on("dblclick.zoom", null);
-    
-    // Initial transform to center the visualization
-    svg.call(
-      zoom.transform,
-      d3.zoomIdentity.translate(MARGIN.left, MARGIN.top)
-    );
-
-    return () => {
-      svg.on(".zoom", null);
-    };
-  }, [dimensions]);
-
-  if (error) {
-    return <div className="error-message">Error: {error}</div>;
-  }
-
-  if (!treeData || !hierarchy || !dimensions.width || !dendrogram) {
-    return (
-      <div ref={containerRef} style={{ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT }}>
-        Loading...
-      </div>
-    );
-  }
-
   const rightAngledLinkGenerator = (source: any, target: any) => {
     const sourceX = source.x;
     const sourceY = source.y;
@@ -272,6 +217,18 @@ export const Dendrogram = () => {
             L${midY},${targetX}
             L${targetY},${targetX}`;
   };
+
+  if (error) {
+    return <div className="error-message">Error: {error}</div>;
+  }
+
+  if (!treeData || !hierarchy || !dimensions.width || !dendrogram) {
+    return (
+      <div ref={containerRef} style={{ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT }}>
+        Loading...
+      </div>
+    );
+  }
 
   const allNodes = dendrogram.descendants().map((node) => {
     const isPrimaryGene = node.data.name === primaryGene;
@@ -294,12 +251,11 @@ export const Dendrogram = () => {
               dominantBaseline="middle"
               fontWeight={isPrimaryGene ? "bold" : "normal"}
             >
-              {/* Display name + genome name */}
               {`${node.data.name}${node.data.metadata?.genome ? ` (${node.data.metadata.genome})` : ''}`}
             </text>
             <MetadataVisualizations
-              x={node.y}
-              y={node.x}
+              x={node.y + LABEL_OFFSET * 20}
+              y={node.x - 10}
               metadata={node.data.metadata}
               isPrimaryGene={isPrimaryGene}
             />
@@ -334,7 +290,10 @@ export const Dendrogram = () => {
         height={dimensions.height}
         style={{ cursor: "grab", backgroundColor: '#ffffff' }}
       >
-        <g ref={gRef}>
+        <g 
+          ref={gRef}
+          transform={`translate(${MARGIN.left}, ${MARGIN.top}) scale(${transform.k}) translate(${transform.x}, ${transform.y})`}
+        >
           {allEdges}
           {allNodes}
         </g>

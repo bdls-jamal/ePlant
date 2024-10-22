@@ -255,7 +255,6 @@ if (!d3) { throw "d3 wasn't included!"};
      var showAll = vis.select("#button")
      	.append("svg:svg")
 
-//      var hover = leafNode
 // 		.on({
 // 		      "mouseover": function(d) {
 // 		        d3.select(this).style("cursor", "auto")
@@ -288,8 +287,6 @@ if (!d3) { throw "d3 wasn't included!"};
 // 		      }
 // 		    });
      var first = true;
-
-//      d3.select("#button").text("clear all");
 //      d3.select("#button")
 //       	.on("click", function() {
 //       		if (icons.style("visibility") == "visible") {
@@ -410,12 +407,9 @@ if (!d3) { throw "d3 wasn't included!"};
 	    		  return "black";
 	    	  }
 	      })
-	      //.style("visibility", "visible")
+
 	      .text(function(d) {
-	    	  // if (d.name == query) {
-	    		//   return "QUERY";
-	    	  // }
-          // else
+
           if (d.name.substr(0,2) == "AT") {
               return "ARABIDOPSIS";
           }
@@ -428,7 +422,6 @@ if (!d3) { throw "d3 wasn't included!"};
       	.attr("x", 320)
       	.attr("y", -11)
       	.attr("align", "right");
-      	// .style("visibility", "visible"); ///hidden
 
       var seqTip = d3.tip()
       	.attr('class', 'd3-tip')
@@ -572,29 +565,6 @@ if (!d3) { throw "d3 wasn't included!"};
         	})
         .attr("y", -7)
         .attr("height", 10);
-
-//      var sccBars = scc.append("rect")
-//        .attr("x", 402)
-//        .attr("y", -7)
-//        .attr("fill", "black")
-//        .attr("width", function(d) {
-//                  if (sccValues[d.name] < 0) {
-//                    return Math.abs(sccValues[d.name]) * 50;
-//                  }
-//                  else if (sccValues[d.name] > 0) {
-//                    return (sccValues[d.name] * 25 + 1) * 2;
-//                  }
-//                  else if (d.name == query) {
-//                	return 50;
-//                  }
-//                  else {
-//                    return 0;
-//                  }
-//              })
-//        .attr("height", 10);
-
-
-
 
 
       var worldTip = d3.tip()
