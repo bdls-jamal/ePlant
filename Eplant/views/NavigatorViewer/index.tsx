@@ -6,15 +6,15 @@ import GeneticElement from '@eplant/GeneticElement';
 import { View } from '@eplant/View';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 
-import Dendrogram from './Dendrogram';
+import NavigatorViewObject from './NavigatorView';
 
-interface ClusterViewData {
+interface NavigatorViewData {
   apiUrl: string;
 }
 
 
-const TestClusterView: View = {
-  name: 'Cluster View',
+const NavigatorView: View = {
+  name: 'Navigator View',
   component: ({ activeData, geneticElement }) => {
     // Construct API URL using genetic element data
     const baseUrl = 'https://bar.utoronto.ca/webservices/eplant_navigator/cgi-bin/eplant_navigator_service.cgi';
@@ -26,9 +26,9 @@ const TestClusterView: View = {
     const apiUrl = `${baseUrl}?primaryGene=${encodeURIComponent(gene)}&species=${encodeURIComponent(species)}&dataset=Developmental&checkedspecies=arabidopsis_poplar_medicago_soybean_rice_barley_maize_potato_tomato_grape`;
     
     return (
-      <DendrogramContext.Provider value={{ apiUrl }}>
-        <Dendrogram />
-      </DendrogramContext.Provider>
+      <NavigatorContext.Provider value={{ apiUrl }}>
+        <NavigatorViewObject />
+      </NavigatorContext.Provider>
     );
   },
   
@@ -45,13 +45,13 @@ const TestClusterView: View = {
     };
   },
   
-  id: 'cluster-view',
+  id: 'navigator-view',
   icon: () => <HomeOutlinedIcon />,
 };
 
 // Create a context with a properly formatted default URL
-export const DendrogramContext = React.createContext<{ apiUrl: string }>({
+export const NavigatorContext = React.createContext<{ apiUrl: string }>({
   apiUrl: 'https://bar.utoronto.ca/webservices/eplant_navigator/cgi-bin/eplant_navigator_service.cgi?primaryGene=AT3G24650&species=Arabidopsis&dataset=Developmental&checkedspecies=arabidopsis_poplar_medicago_soybean_rice_barley_maize_potato_tomato_grape'
 });
 
-export default TestClusterView;
+export default NavigatorView;

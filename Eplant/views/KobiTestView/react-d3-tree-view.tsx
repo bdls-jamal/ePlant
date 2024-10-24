@@ -55,7 +55,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({ nodeDatum, toggleNode }) => {
   );
 };
 
-const NavigatorView = () => {
+const ReactD3TreeView = () => {
 
   const [treeData, setTreeData] = useState<NodeData>();
 
@@ -150,4 +150,4 @@ const NavigatorView = () => {
   );
 };
 
-export default NavigatorView;
+export default ReactD3TreeView;

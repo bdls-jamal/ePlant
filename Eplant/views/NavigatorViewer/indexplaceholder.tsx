@@ -6,7 +6,7 @@ import GeneticElement from '@eplant/GeneticElement';
 import { View } from '@eplant/View';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 
-import Dendrogram from './Dendrogram';
+import Dendrogram from './NavigatorView';
 
 interface ClusterViewData {
   apiUrl: string;

@@ -2,7 +2,7 @@ import { useContext,useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
 import * as d3 from "d3";
 
-import { DendrogramContext } from './index';
+import { NavigatorContext } from './index';
 
 const MARGIN = { top: 50, right: 400, bottom: 50, left: 50 };
 const MIN_NODE_SPACING = 30;
@@ -149,13 +149,13 @@ const MetadataVisualizations = ({
   );
 };
 
-export const Dendrogram = () => {
+export const NavigatorViewObject = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const gRef = useRef<SVGGElement | null>(null);
   const [treeData, setTreeData] = useState<TreeData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { apiUrl } = useContext(DendrogramContext);
+  const { apiUrl } = useContext(NavigatorContext);
   const [primaryGene, setPrimaryGene] = useState<string>(extractPrimaryGene(apiUrl));
   const [species, setSpecies] = useState<string>(extractSpecies(apiUrl));
   const [transform, setTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
@@ -219,22 +219,22 @@ export const Dendrogram = () => {
     }
   }, [treeData, primaryGene, species]);
 
-  const dendrogram = useMemo(() => {
+  const navigator = useMemo(() => {
     if (!dimensions.boundsHeight || !dimensions.boundsWidth || !hierarchy) return null;
 
-    const dendrogramGenerator = d3
+    const navigatorGenerator = d3
       .cluster<D3Node>()
       .size([dimensions.boundsHeight * 0.8, dimensions.boundsWidth * 0.4])
       .separation(() => 1);
 
-    const processedDendrogram = dendrogramGenerator(hierarchy);
-    const maxX = Math.max(...processedDendrogram.descendants().map(d => d.y));
+    const processedNavigator = navigatorGenerator(hierarchy);
+    const maxX = Math.max(...processedNavigator.descendants().map(d => d.y));
 
-    processedDendrogram.descendants().forEach(node => {
+    processedNavigator.descendants().forEach(node => {
       if (!node.children) {
         node.y = maxX;
       } else {
-        const depthRatio = node.depth / processedDendrogram.height;
+        const depthRatio = node.depth / processedNavigator.height;
         node.y = maxX * depthRatio;
 
         node.children.forEach(child => {
@@ -243,14 +243,14 @@ export const Dendrogram = () => {
       }
     });
 
-    return processedDendrogram;
+    return processedNavigator;
   }, [hierarchy, dimensions.boundsWidth, dimensions.boundsHeight]);
 
   if (error) {
     return <div className="error-message">Error: {error}</div>;
   }
 
-  if (!treeData || !hierarchy || !dimensions.width || !dendrogram) {
+  if (!treeData || !hierarchy || !dimensions.width || !navigator) {
     return (
       <div ref={containerRef} style={{ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT }}>
         Loading...
@@ -258,7 +258,7 @@ export const Dendrogram = () => {
     );
   }
 
-  const allNodes = dendrogram.descendants().map((node) => {
+  const allNodes = navigator.descendants().map((node) => {
     const isPrimaryGene = node.data.name.toUpperCase() === primaryGene.toUpperCase();
     let displayName = node.data.name;
     
@@ -300,7 +300,7 @@ export const Dendrogram = () => {
     );
   });
 
-  const allEdges = dendrogram.links().map((link) => {
+  const allEdges = navigator.links().map((link) => {
     const path = `
       M${link.source.y},${link.source.x}
       H${(link as any).target.parentY}
@@ -346,4 +346,4 @@ export const Dendrogram = () => {
   );
 };
 
-export default Dendrogram;
+export default NavigatorViewObject;

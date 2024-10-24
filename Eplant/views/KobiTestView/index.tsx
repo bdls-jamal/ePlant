@@ -5,15 +5,15 @@ import * as React from 'react';
 import { View } from '@eplant/View';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 
-import NavigatorView from './NavigatorView'; // Import the new NavigatorView component
+import NavigatorView from './react-d3-tree-view'; // Import the new NavigatorView component
 
 const KobiTestView: View = {
-  name: 'Navigator View',
+  name: 'ReactD3Tree View',
   component: NavigatorView, // Use the NavigatorView as the component
   async getInitialData() {
     return null;
   },
-  id: 'navigator-view',
+  id: 'reactd3tree-view',
   icon: () => <HomeOutlinedIcon />,
 };
 

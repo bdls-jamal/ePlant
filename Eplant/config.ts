@@ -7,10 +7,10 @@ import ExperimentEFP from './views/ExperimentEFP'
 import FallbackView from './views/FallbackView'
 import GeneInfoView from './views/GeneInfoView'
 import GetStartedView from './views/GetStartedView'
-import NavigatorView from './views/KobiTestView'
+import KobiTestView from './views/KobiTestView'
+import NavigatorView from './views/NavigatorViewer'
 import PlantEFP from './views/PlantEFP'
 import PublicationViewer from './views/PublicationViewer'
-import Dendrogram from './views/TestClusterView'
 import { type View } from './View'
 
 export type EplantConfig = {
@@ -36,7 +36,7 @@ const userViews = [
   ExperimentEFP,
   ChromosomeViewer,
   NavigatorView,
-  Dendrogram,
+  KobiTestView,
 ]
 
 // List of views that are used to lookup a view by id
