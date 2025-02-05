@@ -7,6 +7,7 @@ import ExperimentEFP from './views/ExperimentEFP'
 import FallbackView from './views/FallbackView'
 import GeneInfoView from './views/GeneInfoView'
 import GetStartedView from './views/GetStartedView'
+import HeatmapView from "./views/HeatMapViewer";
 import PlantEFP from './views/PlantEFP'
 import PublicationViewer from './views/PublicationViewer'
 import WorldEFP from './views/WorldEFP'
@@ -35,6 +36,7 @@ const userViews = [
   ExperimentEFP,
   WorldEFP,
   ChromosomeViewer,
+  HeatmapView
 ]
 
 // List of views that are used to lookup a view by id
