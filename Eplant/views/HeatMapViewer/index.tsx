@@ -4,7 +4,13 @@ import GeneticElement from '@eplant/GeneticElement';
 import { View } from '@eplant/View';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 
+import { createViewSwitchProvider } from '../ViewGeneSwitching';
+
 import HeatMapViewObject from './Heatmap';
+import HeatMapIcon from './icon';
+
+/** Use the provider from helper function */
+export const ViewSwitchProvider = createViewSwitchProvider();
 
 export const HeatMapContext = React.createContext<{ geneName: string }>({
   geneName: 'AT3G24650', // Default gene name for now
@@ -37,7 +43,7 @@ const HeatMap: View = {
     };
   },
   id: 'heatmap-view',
-  icon: () => <HomeOutlinedIcon />,
+  icon: () => <HeatMapIcon />,
 };
 
 export default HeatMap;
