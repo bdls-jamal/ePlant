@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useSetAtom } from 'jotai'
 import {
   areEqual,
   FixedSizeList as List,
@@ -22,6 +23,7 @@ import { View, ViewProps } from '@eplant/View'
 import { ViewDataError } from '@eplant/View/viewData'
 import { Box, MenuItem, Tooltip, Typography } from '@mui/material'
 
+import { globalEFPDataAtom } from '../../efpAtoms'
 import EFPPreview from '../EFPPreview'
 import { EFPData } from '../types'
 import EFP from '..'
@@ -249,6 +251,9 @@ export default class EFPViewer
     dispatch,
     geneticElement,
   }: ViewProps<EFPViewerData, EFPViewerState, EFPViewerAction>) => {
+    const setGlobalEFPData = useSetAtom(globalEFPDataAtom)
+
+    // Sort views based on name or expression level
     const viewIndices: number[] = [...Array(activeData.views.length).keys()]
     viewIndices.sort((a, b) => {
       if (state.sortBy == 'name')
@@ -257,14 +262,18 @@ export default class EFPViewer
         return activeData.viewData[b].max - activeData.viewData[a].max
       }
     })
+
+    // Get sorted views and data
     const sortedViews = viewIndices.map((i) => activeData.views[i])
     const sortedViewData = viewIndices.map((i) => activeData.viewData[i])
     const sortedEfps = viewIndices.map((i) => this.efps[i])
 
+    // Determine active view
     let activeViewIndex = useMemo(
       () => sortedEfps.findIndex((v) => v.id == state.activeView),
       [state.activeView, ...sortedEfps.map((v) => v.id)]
     )
+
     if (activeViewIndex == -1) {
       activeViewIndex = 0
       dispatch({
@@ -272,6 +281,13 @@ export default class EFPViewer
         id: sortedEfps[0].id,
       })
     }
+
+    // Update Jotai state whenever view changes
+    useEffect(() => {
+      setGlobalEFPData(sortedViewData[activeViewIndex])
+    }, [activeViewIndex, setGlobalEFPData, sortedViewData])
+
+    // Render the selected EFP component
     const efp = useMemo(() => {
       const Component = sortedEfps[activeViewIndex].component
       return (

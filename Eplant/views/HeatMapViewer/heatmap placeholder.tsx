@@ -1,12 +1,10 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { useAtomValue } from 'jotai'
 import { createRoot } from 'react-dom/client';
 
 import { useTheme } from '@mui/material/styles';
 
 import CellEFPIcon from '../CellEFP/icon';
-import { globalEFPDataAtom } from '../efpAtoms'
 import ExperimentEFPIcon from '../ExperimentEFP/icon';
 import PlantEFPIcon from '../PlantEFP/icon';
 import { useViewSwitch } from '../ViewGeneSwitching';
@@ -62,8 +60,6 @@ export const HeatMapViewObject = () => {
   const { geneName } = useContext(HeatMapContext);
   /** Function to switch between different view types */
   const { switchViewAndGene } = useViewSwitch();
-
-  const efpData = useAtomValue(globalEFPDataAtom);
 
   /** Layout constants for positioning and sizing elements */
   const ICON_HEIGHT = 24;
@@ -279,8 +275,6 @@ export const HeatMapViewObject = () => {
 
   }, [data, dimensions, colorScale, theme, geneName, groupInfo, switchViewAndGene]);
 
-  console.log(efpData);
-
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
       <h2 style={{ marginBottom: '30px' }}>{geneName} HeatMap</h2>
@@ -289,14 +283,6 @@ export const HeatMapViewObject = () => {
         width={dimensions.width} 
         height={dimensions.height + TOP_MARGIN + ICON_SPACING}
       ></svg>
-
-      {/* Display EFP data for testing */}
-      <h3 style={{ color: 'red', marginBottom: '10px' }}>
-        EFP Data Mean: {efpData?.mean?.toFixed(2) ?? 'N/A'}, 
-        Min: {efpData?.min?.toFixed(2) ?? 'N/A'}, 
-        Max: {efpData?.max?.toFixed(2) ?? 'N/A'}
-      </h3>
-
     </div>
   );
 };

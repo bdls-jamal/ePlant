@@ -1,10 +1,13 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useSetAtom } from 'jotai'
 import _ from 'lodash'
 
 import GeneticElement from '@eplant/GeneticElement'
 import { View, ViewProps } from '@eplant/View'
 import { ViewDataError } from '@eplant/View/viewData'
 import { CircularProgress, Typography } from '@mui/material'
+
+import { globalEFPDataAtom } from '../efpAtoms'
 
 import SVGTooltip from './Viewer/EFPTooltip'
 import { useEFPSVG, useStyles } from './svg'
@@ -173,6 +176,10 @@ export default class EFP implements View<EFPData, EFPState, EFPAction> {
         Number.isFinite(_.mean(groupsData.map((g) => g.mean))) &&
         groupsData.length > 0,
     }
+
+    // Store processed data in global Jotai atom
+    useSetAtom(globalEFPDataAtom)(out)
+
     return out
   }
   component({
