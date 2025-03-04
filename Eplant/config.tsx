@@ -6,7 +6,6 @@ import ExperimentEFP from './views/ExperimentEFP'
 import FallbackView from './views/FallbackView'
 import GeneInfoView from './views/GeneInfoView'
 import GetStartedView from './views/GetStartedView'
-import HeatmapView from "./views/HeatMapViewer";
 import PlantEFP from './views/PlantEFP'
 import PublicationViewer from './views/PublicationViewer'
 import WorldEFP from './views/WorldEFP'
@@ -34,12 +33,7 @@ const userViewMetadata = [
   CellEFP,
   ExperimentEFP,
   WorldEFP,
-<<<<<<< HEAD:Eplant/config.ts
-  ChromosomeViewer,
-  HeatmapView
-=======
   ChromosomeViewerObject,
->>>>>>> upstream/yukthiw/routing:Eplant/config.tsx
 ]
 
 // List of views that are used to lookup a view by id
