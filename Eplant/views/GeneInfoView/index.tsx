@@ -1,29 +1,17 @@
-import { ViewDataError } from '@eplant/View/viewData'
 import { Link, Typography } from '@mui/material'
 
-import { View } from '../../View'
+import { ViewMetadata } from '../../View'
 
-import component from './component'
 import GeneInfoViewIcon from './icon'
 import { GeneInfoViewData } from './types'
 
 /**
  * Show information about a gene, including its sequence and features.
  */
-const GeneInfoView: View<GeneInfoViewData> = {
+const GeneInfoView: ViewMetadata<GeneInfoViewData> = {
   name: 'Gene info viewer',
   id: 'gene-info',
-  //TODO: figure out how to make this a component lazy
-  // component: React.lazy(() => import('./component')),
-  component: component,
   icon: () => <GeneInfoViewIcon />,
-  getInitialState() {
-    return null
-  },
-  getInitialData() {
-    // Loader override for the genes species must be undefined if getInitialData is being called
-    throw ViewDataError.UNSUPPORTED_GENE
-  },
   citation({ gene }) {
     return (
       <div>

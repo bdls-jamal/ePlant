@@ -1,13 +1,7 @@
-import ThumbnailLight from '../../../thumbnails/experiment-viewer-light.png'
-import EFP from '../eFP'
-import EFPViewer from '../eFP/Viewer'
-import { EFPViewerActions } from '../eFP/Viewer/actions'
 import { EFPViewerData } from '../eFP/Viewer/types'
 import { makeEfps } from '../eFP/Viewer/util'
 
-import ExperimentEFPIcon from './icon'
-
-const views: EFPViewerData['views'] = [
+export const experimentEFPViews: EFPViewerData['views'] = [
   {
     svgURL:
       'https://bar.utoronto.ca/eplant/data/experiment/efps/Chemical/Arabidopsis_thaliana.svg',
@@ -257,16 +251,4 @@ const views: EFPViewerData['views'] = [
     id: 'SingleCellView',
   },
 ]
-
-const efps: EFP[] = makeEfps(views)
-
-export default new EFPViewer(
-  'tissue',
-  'Tissue & Experiment eFP',
-  views,
-  efps,
-  () => <ExperimentEFPIcon />,
-  'Visualize gene expression across multiple tissues and experiment samples.',
-  ThumbnailLight,
-  EFPViewerActions
-)
+export const experimentEFPs = makeEfps(experimentEFPViews)

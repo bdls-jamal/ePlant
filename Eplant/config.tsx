@@ -1,8 +1,7 @@
 import { createContext, useContext } from 'react'
 
 import CellEFP from './views/CellEFP'
-import ChromosomeViewer from './views/ChromosomeViewer'
-import DebugView from './views/DebugView'
+import { ChromosomeViewerObject } from './views/ChromosomeViewer'
 import ExperimentEFP from './views/ExperimentEFP'
 import FallbackView from './views/FallbackView'
 import GeneInfoView from './views/GeneInfoView'
@@ -11,40 +10,44 @@ import HeatmapView from "./views/HeatMapViewer";
 import PlantEFP from './views/PlantEFP'
 import PublicationViewer from './views/PublicationViewer'
 import WorldEFP from './views/WorldEFP'
-import { type View } from './View'
+import { type ViewMetadata } from './View'
 
 export type EplantConfig = {
-  readonly genericViews: View[]
-  readonly userViews: View[]
-  readonly views: View[]
+  readonly genericViews: ViewMetadata[]
+  readonly userViews: ViewMetadata[]
+  readonly views: ViewMetadata[]
   readonly rootPath: string
   readonly defaultView: string
   readonly defaultSpecies: string
 }
 
 // Views that aren't associated with individual genes
-const genericViews = [GetStartedView, FallbackView]
+const genericViewMetadata = [GetStartedView, FallbackView]
 
 // List of views that a user can select from
 // Can contain views from the genericViews list too
-const userViews = [
+const userViewMetadata = [
+  GetStartedView,
   GeneInfoView,
   PublicationViewer,
-  DebugView,
   PlantEFP,
   CellEFP,
   ExperimentEFP,
   WorldEFP,
+<<<<<<< HEAD:Eplant/config.ts
   ChromosomeViewer,
   HeatmapView
+=======
+  ChromosomeViewerObject,
+>>>>>>> upstream/yukthiw/routing:Eplant/config.tsx
 ]
 
 // List of views that are used to lookup a view by id
-const views = [...genericViews, ...userViews]
+const views = [...genericViewMetadata, ...userViewMetadata]
 
 export const defaultConfig = {
-  genericViews,
-  userViews,
+  genericViews: genericViewMetadata,
+  userViews: userViewMetadata,
   views,
   rootPath: import.meta.env.BASE_URL,
   defaultView: 'gene-info',
