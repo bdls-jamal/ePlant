@@ -14,26 +14,20 @@ import { EFPViewerState } from './types'
 
 // Modal component with a slider
 interface MaskModalProps {
-  maskModalVisible: boolean
-  maskThreshold: number
+  state: EFPViewerState
   onClose: () => void
   onSubmit: (threshhold: number) => void
 }
 
-const MaskModal = ({
-  maskModalVisible,
-  maskThreshold,
-  onClose,
-  onSubmit,
-}: MaskModalProps) => {
-  const [sliderValue, setSliderValue] = useState<number>(maskThreshold)
+const MaskModal = ({ state, onClose, onSubmit }: MaskModalProps) => {
+  const [sliderValue, setSliderValue] = useState<number>(state.maskThreshold)
   const theme = useTheme()
   const handleSliderChange = (event: Event, newValue: number | number[]) => {
     setSliderValue(newValue as number)
   }
 
   const handleClose = () => {
-    setSliderValue(maskThreshold)
+    setSliderValue(state.maskThreshold)
     onClose()
   }
 
@@ -41,7 +35,7 @@ const MaskModal = ({
     onSubmit(sliderValue)
   }
   return (
-    <Modal open={maskModalVisible} onClose={handleClose}>
+    <Modal open={state.maskModalVisible} onClose={handleClose}>
       <div
         style={{
           width: 500,

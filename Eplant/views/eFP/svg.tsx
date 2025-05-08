@@ -5,14 +5,7 @@ import { atomWithStorage } from 'jotai/utils'
 
 import { Theme, useTheme } from '@mui/material'
 
-import {
-  ColorMode,
-  EFPData,
-  EFPGroup,
-  EFPId,
-  EFPSampleData,
-  EFPSVGCache,
-} from './types'
+import { ColorMode, EFPData, EFPId, EFPSampleData, EFPSVGCache } from './types'
 
 const cacheAtom = atomWithStorage<EFPSVGCache>('eFP_cache', {})
 
@@ -90,7 +83,7 @@ export const useEFPSVG = (
 
 export function getColor(
   value: number,
-  group: EFPSampleData | EFPGroup,
+  group: EFPSampleData,
   control: number,
   theme: Theme,
   colorMode: ColorMode,

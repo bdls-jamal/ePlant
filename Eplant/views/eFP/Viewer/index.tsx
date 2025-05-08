@@ -429,8 +429,7 @@ export default class EFPViewer
                   )}
                 </div>
                 <MaskModal
-                  maskModalVisible={state.maskModalVisible}
-                  maskThreshold={state.maskThreshold}
+                  state={state}
                   onClose={() => dispatch({ type: 'toggle-mask-modal' })}
                   onSubmit={(threshold) =>
                     dispatch({
