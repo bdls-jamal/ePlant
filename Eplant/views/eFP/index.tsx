@@ -130,6 +130,7 @@ export default class EFP implements View<EFPData, EFPState, EFPAction> {
         )
       )
     ).flat()
+
     for (const { name, value } of data) samples[name] = value
     loadEvent(1)
     const groupsData = groups
