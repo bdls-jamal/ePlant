@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect,useMemo,useRef, useState } from "react"
 import cytoscape, { Core, ElementsDefinition, warnings } from 'cytoscape'
 import { useOutletContext } from "react-router-dom"
 
@@ -8,7 +8,7 @@ import { useURLState } from "@eplant/state/URLStateProvider"
 import { ViewContext } from "@eplant/UI/Layout/ViewContainer/types"
 import { ViewDataError } from "@eplant/View"
 import { Close } from "@mui/icons-material"
-import { Alert, IconButton, Snackbar } from "@mui/material"
+import { Alert, IconButton,Snackbar } from "@mui/material"
 import { useQuery } from "@tanstack/react-query"
 
 import Topbar from "./components/Topbar"
@@ -34,10 +34,9 @@ export const InteractionsViewObject = () => {
     const { data, isLoading, isError, error } = useQuery<InteractionsViewData>({
     queryKey: [`interactions-viewer-${geneticElement?.id}`],
     queryFn: async () => {
-        return await InteractionsViewLoader(geneticElement, setLoadAmount)
+        return InteractionsViewLoader(geneticElement, setLoadAmount)
     },
     enabled: !!geneticElement,
-    staleTime: 0,
     })
 
     /**
@@ -74,7 +73,6 @@ export const InteractionsViewObject = () => {
     }
     
     const elements: any = [...(viewData.nodes || []), ...(viewData.edges || [])]
-  
     
     // Snackbar state
     const [snackbarOpen, setSnackbarOpen] = useState(true)
@@ -86,28 +84,17 @@ export const InteractionsViewObject = () => {
     useEffect(() => {
       // Don't proceed if we're still loading or don't have a container
       if (isLoading || !cyContainerRef.current) return;
-
-      viewData.nodes
-  .filter((n) => n.classes?.includes('protein-back'))
-  .forEach((node) => {
-    console.log(`Node ${node.data.id}`, {
-      borderWidth: node.data?.borderWidth,
-      pie1Colour: node.data?.pie1Colour,
-      pie1Size: node.data?.pie1Size,
-    });
-  });
       
       // Clean up any existing instance
       if (cyto) {
           cyto.destroy();
       }
       
-      
       // Create a new instance with the current elements
       const cy: Core = cytoscape({
           container: cyContainerRef.current,
-          elements: elements,
           style: cytoStyles,
+          elements: elements
       });
       
       // Add event listeners
@@ -191,9 +178,6 @@ export const InteractionsViewObject = () => {
     }, [geneId, isLoading, elements.length]);
 
 
-    /**
-     * Use effect to synchronize cytoscape zoom and pan state with the URL state
-     */
     useEffect(() => {
       if (!cyto || !state?.transform || isLoading || elements.length === 0) return;
       
@@ -239,7 +223,6 @@ export const InteractionsViewObject = () => {
         <div
           ref={cyContainerRef}
           id='cy'
-          key={geneId}
           style={{ width: '100%', height: '80vh' }}
         ></div>
         {/* SNACKBAR - alerts user what to do if protein localization colours are not visible*/}
@@ -290,6 +273,7 @@ export const InteractionsViewObject = () => {
 
 /**
  * Data loader function for Interactions View
+ * Separated from component as per new architecture
  */
 export const InteractionsViewLoader = async (
   geneticElement: GeneticElement | null,
@@ -333,7 +317,7 @@ export const InteractionsViewLoader = async (
       }
       // Load interactions
       loadEvent(75)
-      data = await loadInteractions(geneticElement, interactions, recursive)
+      data = loadInteractions(geneticElement, interactions, recursive)
       loadEvent(100) // Complete
     } catch (error) {
       console.error("Error loading interactions:", error)
