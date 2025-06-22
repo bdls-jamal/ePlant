@@ -43,9 +43,12 @@ export const GeneInfoView = () => {
     navigator.clipboard.writeText(text)
   }
 
-    if (isLoading && loadAmount < 100 || isError) {
+  if (isError) {
     return <LoadingPage loadingAmount={loadAmount} gene={geneticElement} view={GeneInfoViewMetadata} error={ViewDataError.FAILED_TO_LOAD}></LoadingPage>
-  }else if (!data) return <></>
+  }else if (isLoading && loadAmount < 100) {
+    return <LoadingPage loadingAmount={loadAmount} gene={geneticElement} view={GeneInfoViewMetadata} error={null}></LoadingPage>
+  }
+  else if (!data) return <></>
   return (
     <Stack direction='row' gap={'20px'}>
       <ViewSwitcher geneticElement={geneticElement} />

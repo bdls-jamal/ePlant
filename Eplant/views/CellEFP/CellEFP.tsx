@@ -45,9 +45,12 @@ export const CellEFPView = () => {
     }
   }, [geneticElement?.id, data])
 
-  if (isLoading && loadAmount < 100 || isError) {
+  if (isError) {
     return <LoadingPage loadingAmount={loadAmount} gene={geneticElement} view={CellEFP} error={ViewDataError.FAILED_TO_LOAD}></LoadingPage>
-  }else if (!data || !state) return <></>
+  }else if (isLoading && loadAmount < 100) {
+    return <LoadingPage loadingAmount={loadAmount} gene={geneticElement} view={CellEFP} error={null}></LoadingPage>
+  }
+  else if (!data || !state) return <></>
 
   return (
     <Box

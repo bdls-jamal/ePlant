@@ -42,10 +42,13 @@ export const ExperimentEFPView = () => {
 
 
 
-  if (isLoading && loadAmount < 100 || isError) {
+    if (isError) {
     return <LoadingPage loadingAmount={loadAmount} gene={geneticElement} view={ExperimentEFP} error={ViewDataError.FAILED_TO_LOAD}></LoadingPage>
-  }else if (!data || !state) return <></>
-  if (isLoading || isError || !data || !state) return <></>
+  }else if (isLoading && loadAmount < 100) {
+    return <LoadingPage loadingAmount={loadAmount} gene={geneticElement} view={ExperimentEFP} error={null}></LoadingPage>
+  }
+  else if (!data || !state) return <></>
+  
   return (
     <EFPViewer
       data={data}
