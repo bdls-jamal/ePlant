@@ -131,6 +131,7 @@ export const NavigatorViewObject = () => {
     }
   }, [data?.url, data?.treeData, activeGeneId])
 
+
   /** Create D3 hierarchy from tree data
    * D3 hierarchy encompasses a number of object types such as Tree, Cluster, Treemap, etc.
    * Using Tree does not yield what is required(leaf nodes aligned vertically).
@@ -891,7 +892,10 @@ export const NavigatorViewObject = () => {
     )
   }
 
-  if (isLoading || isError || !data || !state) return <></>
+  if (isError) {
+      setError(ViewDataError.UNSUPPORTED_GENE)
+      return <></>
+  } else if (isLoading || !data || !state) return <></>
 
   /** Render the complete tree visualization */
   return (
