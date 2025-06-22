@@ -12,7 +12,7 @@ import {
 import Modal from '@eplant/UI/Modal'
 import ErrorBoundary from '@eplant/util/ErrorBoundary'
 import { ViewDataError } from '@eplant/View'
-import GeneInfoView from '@eplant/views/GeneInfoView'
+import GeneInfoViewMetadata from '@eplant/views/GeneInfoView'
 import {
   Box,
   Button,
@@ -79,7 +79,7 @@ export function ViewContainer<T, S, A>({ ...props }) {
     // Set activeview
     const urlView =
       views.find((view) => view.id === location.pathname.split('/')[1]) ??
-      GeneInfoView
+      GeneInfoViewMetadata
 
     setActiveViewId(urlView.id)
   }, [])
@@ -116,7 +116,7 @@ export function ViewContainer<T, S, A>({ ...props }) {
 
   // Get view and gene objects once everything resolves
   const activeView =
-    views.find((view) => view.id === activeViewId) ?? GeneInfoView
+    views.find((view) => view.id === activeViewId) ?? GeneInfoViewMetadata
   const gene = genes.find((gene) => gene.id === activeGeneId) ?? null
   return (
     <Box {...props} display='flex' flexDirection='column'>

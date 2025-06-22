@@ -9,7 +9,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import ErrorBoundary from './util/ErrorBoundary'
 import { CellEFPView } from './views/CellEFP/CellEFP'
 import { ChromosomeView } from './views/ChromosomeViewer/ChromosomeView'
-import { ExperimentEFP } from './views/ExperimentEFP/ExperimentEFP'
+import { ExperimentEFPView } from './views/ExperimentEFP/ExperimentEFP'
 import { GeneInfoView } from './views/GeneInfoView/GeneInfo'
 import GetStartedView from './views/GetStartedView/GetStartedView'
 import { NavigatorViewObject } from './views/NavigatorView/NavigatorView'
@@ -45,7 +45,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'tissue/:geneid?',
-        element: <ExperimentEFP></ExperimentEFP>,
+        element: <ExperimentEFPView></ExperimentEFPView>,
       },
       {
         path: 'gene-info/:geneid?',
