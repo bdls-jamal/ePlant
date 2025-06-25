@@ -12,6 +12,7 @@ import { ChromosomeView } from './views/ChromosomeViewer/ChromosomeView'
 import { ExperimentEFP } from './views/ExperimentEFP/ExperimentEFP'
 import { GeneInfoView } from './views/GeneInfoView/GeneInfo'
 import GetStartedView from './views/GetStartedView/GetStartedView'
+import { HeatMapViewObject } from './views/HeatMapViewer/HeatMapView'
 import { PlantEFP } from './views/PlantEFP/PlantEFP'
 import { PublicationsView } from './views/PublicationViewer/PublicationsView'
 import { Config, defaultConfig } from './config'
@@ -54,6 +55,10 @@ const router = createBrowserRouter([
         path: 'get-started/:geneid?',
         element: <GetStartedView></GetStartedView>,
       },
+      {
+        path: 'heatmap-view/:geneid?',
+        element: <HeatMapViewObject></HeatMapViewObject>
+      }
     ],
     errorElement: <ErrorBoundary></ErrorBoundary>,
   },

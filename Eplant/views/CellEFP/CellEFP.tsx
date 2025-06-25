@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { useSetAtom } from 'jotai'
 import { useOutletContext } from 'react-router-dom'
 
 import GeneticElement from '@eplant/GeneticElement'
@@ -9,6 +10,8 @@ import { ViewDataError } from '@eplant/View'
 import { Box, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 
+import { globalEFPDataAtom } from '../eFP/eFPAtoms'
+import { EFPData } from '../eFP/types'
 import Legend from '../eFP/Viewer/legend'
 
 import { CellEFPDataObject } from './CellEFPDataObject'
@@ -22,12 +25,41 @@ export const CellEFPView = () => {
   const { geneticElement, setIsLoading, setLoadAmount } =
     useOutletContext<ViewContext>()
   const { state, setState, initializeState } = useURLState<CellEFPViewerState>()
+  const setGlobalEFPData = useSetAtom(globalEFPDataAtom)
   const { data, isLoading, isError, error } = useQuery<CellEFPViewerData>({
     queryKey: [`cell-efp-${geneticElement?.id}`],
     queryFn: async () => {
-      return cellEFPLoader(geneticElement, setLoadAmount)
+      const result = await cellEFPLoader(geneticElement, setLoadAmount)
+      if (geneticElement?.id && result?.viewData) {
+        setGlobalEFPData(prev => ({
+          ...prev,
+          cell: {
+            ...prev.cell,
+            [geneticElement.id]: {
+              gene: geneticElement.id,
+              data: {
+                plant: [],
+                experiment: [],
+                cell: result.viewData.groups.flatMap(group =>
+                  group.tissues.map(tissue => ({
+                    value: tissue.mean,
+                    sample: tissue.name,
+                    database: group.name
+                  }))
+                )
+              }
+            }
+          }
+        }));
+      }
+      return result
     },
+    enabled: !!geneticElement,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   })
+    
   useEffect(() => {
     // On mount, initialize state
     initializeState(CellEFPStateSchema)
