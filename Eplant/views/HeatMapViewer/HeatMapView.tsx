@@ -236,21 +236,21 @@ export const HeatMapViewerLoader = async (
         geneData: {
             gene: geneId,
             data: {
-                plant: plant?.viewData?.flatMap(sample =>
+                plant: plant?.viewData?.flatMap((sample, i) =>
                     sample.groups.flatMap((g: EFPGroup) =>
                         g.tissues.map((t: EFPTissue) => ({
                             value: t.mean,
                             sample: t.name,
-                            database: g.name
+                            database: plant.views?.[i]?.name ?? g.name
                         }))
                     )
                 ) ?? [],
-                experiment: experiment?.viewData?.flatMap(sample =>
+                experiment: experiment?.viewData?.flatMap((sample, i) =>
                     sample.groups.flatMap((g: EFPGroup) =>
                         g.tissues.map((t: EFPTissue) => ({
                             value: t.mean,
                             sample: t.name,
-                            database: g.name
+                            database: experiment.views?.[i]?.name ?? g.name 
                         }))
                     )
                 ) ?? [],
