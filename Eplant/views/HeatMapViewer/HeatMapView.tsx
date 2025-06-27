@@ -73,32 +73,51 @@ export const HeatMapViewObject = () => {
     const LEFT_MARGIN = 100;
     const ROW_SPACING = 10;
     const MIN_CELL_WIDTH = 1.3;
-    const GROUP_GAP = 20;
+    const GROUP_GAP = 10;
     const ROW_HEIGHT = 25;
-    const DATABASE_GAP = 2;
+    const DATABASE_GAP = 3;
 
     const validGroups = ['plant', 'experiment', 'cell'] as const;
-    type GroupKey = typeof validGroups[number]; // 'plant' | 'experiment' | 'cell'
+    type GroupKey = typeof validGroups[number];
 
     const groups: GroupKey[] = validGroups.filter(group =>
-    loadedGenes.some(g => g.data[group].length > 0)
+        loadedGenes.some(g => g.data[group].length > 0)
     );
+
+    // Helper function to calculate actual rendered width including database gaps
+    const calculateActualWidth = (groupData: any[], cellWidth: number) => {
+        if (groupData.length === 0) return 0;
+        
+        const sorted = [...groupData].sort((a, b) =>
+            (a.database || '').localeCompare(b.database || '')
+        );
+        
+        const uniqueDatabases = [...new Set(sorted.map(item => item.database))];
+        const databaseGaps = Math.max(0, uniqueDatabases.length - 1) * DATABASE_GAP;
+        
+        return groupData.length * cellWidth + databaseGaps;
+    };
 
     const groupInfo = useMemo(() => {
         const cellWidth = MIN_CELL_WIDTH;
-        const sizes = groups.map(group => {
-            const maxSize = Math.max(0, ...loadedGenes.map(d => d.data[group].length));
-            return { group, size: maxSize };
+        
+        // Calculate actual widths for each group across all genes
+        const groupWidths = groups.map(group => {
+            const maxWidth = Math.max(0, ...loadedGenes.map(geneData => 
+                calculateActualWidth(geneData.data[group], cellWidth)
+            ));
+            return { group, width: maxWidth };
         });
-        const groupPositions = sizes.map(({ group, size }, i) => {
+
+        // Calculate cumulative positions
+        const groupPositions = groupWidths.map(({ group, width }, i) => {
             const position = i === 0
                 ? 0
-                : sizes.slice(0, i).reduce((sum, { size }) => sum + size * cellWidth + GROUP_GAP, 0);
-            return { group, width: size * cellWidth, position };
+                : groupWidths.slice(0, i).reduce((sum, { width }) => sum + width + GROUP_GAP, 0);
+            return { group, width, position };
         });
 
-
-        return { sizes, cellWidth, groupPositions };
+        return { cellWidth, groupPositions };
     }, [loadedGenes, groups]);
 
     const totalWidth = useMemo(() => {
@@ -111,7 +130,7 @@ export const HeatMapViewObject = () => {
             Object.values(gd.data).flatMap(group => group.map(p => p.value))
         );
         const extent = d3.extent(allValues) as [number, number];
-        return d3.scaleSequential(d3.interpolateYlOrRd).domain(extent); // ← no reverse()
+        return d3.scaleSequential(d3.interpolateYlOrRd).domain(extent);
     }, [loadedGenes]);
 
     useEffect(() => {
@@ -131,7 +150,6 @@ export const HeatMapViewObject = () => {
         };
     }, []);
 
-    
     useEffect(() => {
         if (!loadedGenes.length || !svgRef.current || !groupInfo) return;
         const svg = d3.select(svgRef.current);
@@ -139,12 +157,16 @@ export const HeatMapViewObject = () => {
 
         const mainGroup = svg.append('g').attr('transform', `translate(${LEFT_MARGIN}, ${TOP_MARGIN})`);
 
+        // Render group icons and branch lines
         groupInfo.groupPositions.forEach(({ group, position, width }) => {
             const Icon = group === 'plant' ? PlantEFPIcon : group === 'experiment' ? ExperimentEFPIcon : CellEFPIcon;
+            const iconCenterX = LEFT_MARGIN + position + width / 2;
+            
+            // Render icon (centered on the vertical line)
             const foreignObject = svg.append('foreignObject')
-                .attr('x', LEFT_MARGIN + position + (width - 34) / 2)
+                .attr('x', iconCenterX - 15) // Adjust centering - icons might not be exactly 34px or centered within their container
                 .attr('y', ICON_SPACING)
-                .attr('width', 34)
+                .attr('width', 30)
                 .attr('height', ICON_HEIGHT);
             const container = foreignObject.append('xhtml:div').node();
             if (container instanceof HTMLElement) {
@@ -152,11 +174,59 @@ export const HeatMapViewObject = () => {
                 container.appendChild(iconDiv);
                 createRoot(iconDiv).render(<ThemeProvider theme={theme}><Icon /></ThemeProvider>);
             }
-        });
-        console.log(loadedGenes)
 
+            // Only draw branch lines if this group has data
+            const hasData = loadedGenes.some(geneData => geneData.data[group].length > 0);
+            if (hasData && width > 0) {
+                const iconBottomY = ICON_SPACING + ICON_HEIGHT;
+                const branchStartY = iconBottomY + 5;
+                const branchEndY = TOP_MARGIN - 5;
+                const groupStartX = LEFT_MARGIN + position;
+                const groupEndX = LEFT_MARGIN + position + width;
+
+                // Left horizontal line from icon center to start of data
+                svg.append('line')
+                    .attr('x1', iconCenterX)
+                    .attr('y1', branchStartY)
+                    .attr('x2', groupStartX)
+                    .attr('y2', branchStartY)
+                    .attr('stroke', theme.palette.text.secondary)
+                    .attr('stroke-width', 1);
+
+                // Right horizontal line from icon center to end of data
+                svg.append('line')
+                    .attr('x1', iconCenterX)
+                    .attr('y1', branchStartY)
+                    .attr('x2', groupEndX)
+                    .attr('y2', branchStartY)
+                    .attr('stroke', theme.palette.text.secondary)
+                    .attr('stroke-width', 1);
+
+                // Left bracket line (start of group)
+                svg.append('line')
+                    .attr('x1', groupStartX)
+                    .attr('y1', branchStartY)
+                    .attr('x2', groupStartX)
+                    .attr('y2', branchEndY)
+                    .attr('stroke', theme.palette.text.secondary)
+                    .attr('stroke-width', 1);
+
+                // Right bracket line (end of group)
+                svg.append('line')
+                    .attr('x1', groupEndX)
+                    .attr('y1', branchStartY)
+                    .attr('x2', groupEndX)
+                    .attr('y2', branchEndY)
+                    .attr('stroke', theme.palette.text.secondary)
+                    .attr('stroke-width', 1);
+            }
+        });
+
+        // Render gene data
         loadedGenes.forEach((geneData, row) => {
             const yOffset = row * (ROW_HEIGHT + ROW_SPACING);
+            
+            // Gene label
             mainGroup.append('text')
                 .attr('x', -10)
                 .attr('y', yOffset + ROW_HEIGHT / 2)
@@ -166,6 +236,7 @@ export const HeatMapViewObject = () => {
                 .style('font-size', '14px')
                 .style('fill', theme.palette.text.primary);
 
+            // Render cells for each group
             groupInfo.groupPositions.forEach(({ group, position }) => {
                 const sorted = [...geneData.data[group]].sort((a, b) =>
                     (a.database || '').localeCompare(b.database || '')
@@ -174,29 +245,29 @@ export const HeatMapViewObject = () => {
                 let currentX = position;
                 let previousDb: string | null = null;
 
-                sorted.forEach((point, i) => {
+                sorted.forEach((point) => {
                     if (previousDb !== null && point.database !== previousDb) {
-                    currentX += DATABASE_GAP; // insert gap between databases
+                        currentX += DATABASE_GAP;
                     }
 
                     mainGroup.append('rect')
-                    .attr('x', currentX)
-                    .attr('y', yOffset)
-                    .attr('width', groupInfo.cellWidth)
-                    .attr('height', ROW_HEIGHT)
-                    .attr('fill', colorScale(point.value))
-                    .style('cursor', 'pointer')
-                    .on('mouseover', (e) => {
-                        d3.select('.heatmap-tooltip')
-                        .style('visibility', 'visible')
-                        .html(`<strong>Gene:</strong> ${geneData.gene}<br/><strong>Sample:</strong> ${point.sample}<br/><strong>Value:</strong> ${point.value.toFixed(2)}<br/><strong>Database:</strong> ${point.database}`);
-                    })
-                    .on('mousemove', (e) => {
-                        d3.select('.heatmap-tooltip')
-                        .style('top', (e.pageY - 10) + 'px')
-                        .style('left', (e.pageX + 10) + 'px');
-                    })
-                    .on('mouseout', () => d3.select('.heatmap-tooltip').style('visibility', 'hidden'));
+                        .attr('x', currentX)
+                        .attr('y', yOffset)
+                        .attr('width', groupInfo.cellWidth)
+                        .attr('height', ROW_HEIGHT)
+                        .attr('fill', colorScale(point.value))
+                        .style('cursor', 'pointer')
+                        .on('mouseover', (e) => {
+                            d3.select('.heatmap-tooltip')
+                                .style('visibility', 'visible')
+                                .html(`<strong>Gene:</strong> ${geneData.gene}<br/><strong>Sample:</strong> ${point.sample}<br/><strong>Value:</strong> ${point.value.toFixed(2)}<br/><strong>Database:</strong> ${point.database}`);
+                        })
+                        .on('mousemove', (e) => {
+                            d3.select('.heatmap-tooltip')
+                                .style('top', (e.pageY - 10) + 'px')
+                                .style('left', (e.pageX + 10) + 'px');
+                        })
+                        .on('mouseout', () => d3.select('.heatmap-tooltip').style('visibility', 'hidden'));
 
                     currentX += groupInfo.cellWidth;
                     previousDb = point.database;
