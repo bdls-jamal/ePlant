@@ -50,7 +50,6 @@ export const ExperimentEFP = () => {
             }
           }));
         }
-        console.log(result);
         return result;
       },
     enabled: !!geneticElement,
