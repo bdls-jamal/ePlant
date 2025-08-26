@@ -1,6 +1,9 @@
 import { MouseEvent, useEffect, useId, useRef, useState } from 'react'
+import { useAtom } from 'jotai'
 
 import GeneticElement from '@eplant/GeneticElement'
+import { GlobalEFPData, globalEFPDataAtom } from '@eplant/views/eFP/eFPAtoms'
+import { removeGeneFromEFPData } from '@eplant/views/HeatMapViewer/heatmapUtils'
 import { DragIndicator } from '@mui/icons-material'
 import {
   Box,
@@ -137,6 +140,12 @@ export default function GeneticElementComponent({
       })}
     />
   )
+  /** Constants required for use in the deletion functionality in the heatmap.
+   * Since the heatmap is unique and loads multiple gene's data in one view, the removal of a gene from the sidebar works differently here.
+   * It is necessary to make the removal of displayed data in the heatmap directly from the sidebar functionality in this file.
+   */
+  const [globalEFPData, setGlobalEFPData] = useAtom(globalEFPDataAtom);
+  const geneId = geneticElement.id;
 
   const transformDist =
     20 +
@@ -258,8 +267,10 @@ export default function GeneticElementComponent({
           'aria-labelledby': 'basic-button',
         }}
       >
-        <MenuItem onClick={() => (closeMenu(), onRemove?.())}>
-          Remove gene from list
+        <MenuItem
+          // Also remove from heatmap cache
+          onClick={() => {closeMenu(); onRemove?.(); setGlobalEFPData((prev: GlobalEFPData) => removeGeneFromEFPData(prev, geneId));}}> 
+            Remove gene from list
         </MenuItem>
       </Menu>
     </Paper>
