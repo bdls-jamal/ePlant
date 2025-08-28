@@ -31,9 +31,9 @@ import {
 /**
  * Main React component that renders a heatmap visualization of gene expression data.
  * This component displays gene expression data across three different categories:
- * - Plant tissues (anatomical parts like roots, leaves, etc.)
- * - Experimental conditions (stress, chemical treatments, etc.)
- * - Cell types (specific cellular populations)
+ * - Plant tissues
+ * - Experimental conditions
+ * - Cell types
  * 
  * The heatmap shows expression values as colored cells, with yellow representing
  * low expression and red representing high expression levels.
@@ -42,7 +42,7 @@ export const HeatMapViewObject = () => {
     /** Extract context data from the parent component including the current gene and loading functions */
     const { geneticElement, setIsLoading, setLoadAmount } = useOutletContext<ViewContext>();
     
-    /** Initialize URL state management for maintaining view state across page refreshes */
+    /** Initialize URL state management for maintaining view state */
     const { initializeState } = useURLState<HeatMapViewerState>();
     
     /** Access Material-UI theme for consistent styling (dark/light mode support) */
@@ -114,7 +114,7 @@ export const HeatMapViewObject = () => {
         const id = geneticElement.id;
         const incoming = data.geneData.data;
 
-        /** Merge new data with existing cached data, preferring non-empty arrays */
+        /** Merge new data with existing cached data */
         setGlobalEFPData(prev => {
             const prevPlant = prev.plant[id]?.data.plant ?? [];
             const prevExp = prev.experiment[id]?.data.experiment ?? [];
@@ -189,7 +189,6 @@ export const HeatMapViewObject = () => {
 
     /**
      * Maximum number of samples for plant tissue databases.
-     * These are anatomical expression patterns from different tissue types.
      */
     const maxSamplesPerDBPlant: Record<string, number> = {
         'AtGenExpress eFP': 47,
@@ -198,13 +197,12 @@ export const HeatMapViewObject = () => {
 
     /**
      * Maximum number of samples for cell-type specific databases.
-     * These represent expression in specific cellular populations.
      */
     const maxSamplesPerDBCell: Record<string, number> = {
         'plant cell': 11,
     };
 
-    /** Type-safe definition of the three main data categories */
+    /** Definition of the three main data categories */
     const validGroups = ['plant', 'experiment', 'cell'] as const;
     type GroupKey = typeof validGroups[number];
 
@@ -577,7 +575,6 @@ export const HeatMapViewerLoader = async (
                 
                 /** 
                  * Cell data: Expression in specific cell types.
-                 * Typically has fewer samples but high specificity.
                  */
                 cell: cell?.viewData?.groups?.flatMap((g: EFPGroup) =>
                     g.tissues.map((t: EFPTissue) => ({

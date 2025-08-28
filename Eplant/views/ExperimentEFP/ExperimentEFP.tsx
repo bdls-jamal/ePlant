@@ -29,12 +29,13 @@ export const ExperimentEFP = () => {
         if (geneticElement?.id && result?.viewData) {
           setGlobalEFPData(prev => ({
             ...prev,
-            plant: {
-              ...prev.plant,
+            experiment: {
+              ...prev.experiment,
               [geneticElement.id]: {
                 gene: geneticElement.id,
                 data: {
-                  plant: result.viewData.flatMap((sample) =>
+                  plant: [],
+                  experiment: result.viewData.flatMap((sample) =>
                     sample.groups.flatMap((group) =>
                       group.tissues.map((tissue) => ({
                         value: tissue.mean,
@@ -43,7 +44,6 @@ export const ExperimentEFP = () => {
                       }))
                     )
                   ),
-                  experiment: [],
                   cell: []
                 }
               }
