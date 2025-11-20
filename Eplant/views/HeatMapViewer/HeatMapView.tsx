@@ -546,9 +546,10 @@ export const HeatMapViewObject = () => {
  */
 export const HeatMapViewerLoader = async (
     geneticElement: GeneticElement | null,
-    loadEvent: (loaded: number) => void
+    loadEvent: (loaded: number) => void,
+    globalEFPData: typeof globalEFPDataAtom extends Atom<infer T> ? T : any,  // Type for global cache
+    setGlobalEFPData: (update: (prev: GlobalEFPData) => GlobalEFPData) => void
 ): Promise<HeatMapViewerData> => {
-    /** Validate that a genetic element was provided */
     if (!geneticElement) throw ViewDataError.UNSUPPORTED_GENE;
 
     const geneId = geneticElement.id;
@@ -567,62 +568,64 @@ export const HeatMapViewerLoader = async (
     /** Report 100% loading completion */
     loadEvent(100);
 
-    /**
-     * Transform the loaded data into the format expected by the heatmap component.
-     * Each data source has a different structure, so we normalize them here.
-     */
+    // NEW: Store the full EFPViewerData format in cache for EFP views to use
+    if (plant && geneticElement?.id) {
+        setGlobalEFPData(prev => ({
+            ...prev,
+            plant: { ...prev.plant, [geneticElement.id]: plant }
+        }));
+    }
+    if (experiment && geneticElement?.id) {
+        setGlobalEFPData(prev => ({
+            ...prev,
+            experiment: { ...prev.experiment, [geneticElement.id]: experiment }
+        }));
+    }
+    if (cell && geneticElement?.id) {
+        setGlobalEFPData(prev => ({
+            ...prev,
+            cell: { ...prev.cell, [geneticElement.id]: cell }
+        }));
+    }
+
+    // Return flattened format for HeatMap
     return {
         geneData: {
             gene: geneId,
             data: {
-                /** 
-                 * Plant data: Expression across different anatomical tissues.
-                 * Flattens nested group/tissue structure into individual data points.
-                 */
-                plant: plant?.viewData?.flatMap((sample, i) =>
-                    sample.groups.flatMap((g: EFPGroup) =>
+                plant:
+                    plant?.viewData?.flatMap((sample: any, i: number) =>
+                        sample.groups.flatMap((g: EFPGroup) =>
+                            g.tissues.map((t: EFPTissue) => ({
+                                value: t.mean,
+                                sample: t.name,
+                                database: plant.views?.[i]?.name ?? g.name
+                            }))
+                        )
+                    ) ?? cachedPlant?.data?.plant ?? [],
+
+                experiment:
+                    experiment?.viewData?.flatMap((sample: any, i: number) =>
+                        sample.groups.flatMap((g: EFPGroup) =>
+                            g.tissues.map((t: EFPTissue) => ({
+                                value: t.mean,
+                                sample: t.name,
+                                database: experiment.views?.[i]?.name ?? g.name
+                            }))
+                        )
+                    ) ?? cachedExperiment?.data?.experiment ?? [],
+
+                cell:
+                    cell?.viewData?.groups?.flatMap((g: EFPGroup) =>
                         g.tissues.map((t: EFPTissue) => ({
                             value: t.mean,
                             sample: t.name,
-                            database: plant.views?.[i]?.name ?? g.name
-                        }))
-                    )
-                ) ?? [],
-                
-                /** 
-                 * Experiment data: Expression under different experimental conditions.
-                 * Similar flattening process for consistency.
-                 */
-                experiment: experiment?.viewData?.flatMap((sample, i) =>
-                    sample.groups.flatMap((g: EFPGroup) =>
-                        g.tissues.map((t: EFPTissue) => ({
-                            value: t.mean,
-                            sample: t.name,
-                            database: experiment.views?.[i]?.name ?? g.name
-                        }))
-                    )
-                ) ?? [],
-                
-                /** 
-                 * Cell data: Expression in specific cell types.
-                 */
-                cell: cell?.viewData?.groups?.flatMap((g: EFPGroup) =>
-                    g.tissues.map((t: EFPTissue) => ({
-                        value: t.mean,
-                        sample: t.name,
-                        database: g.name
-                    }))
-                ) ?? [],
+                            database: g.name
+                            }))
+                    ) ?? cachedCell?.data?.cell ?? [],
             },
         },
-        /** 
-         * View mapping configuration for different data types.
-         * This helps other components understand what type of data they're working with.
-         */
-        viewMap: {
-            plant: 'plant',
-            experiment: 'tissue',
-            cell: 'Cell eFP',
-        },
+        viewMap: { plant: 'plant', experiment: 'tissue', cell: 'Cell eFP' }
     };
+
 };

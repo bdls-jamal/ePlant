@@ -36,15 +36,32 @@ import {
  * The heatmap shows expression values as colored cells, with yellow representing
  * low expression and red representing high expression levels.
  */
+/**
+ * Main React component that renders a heatmap visualization of gene expression data.
+ * This component displays gene expression data across three different categories:
+ * - Plant tissues
+ * - Experimental conditions
+ * - Cell types
+ * 
+ * The heatmap shows expression values as colored cells, with yellow representing
+ * low expression and red representing high expression levels.
+ */
 export const HeatMapViewObject = () => {
     /** Extract context data from the parent component including the current gene and loading functions */
+    /** Extract context data from the parent component including the current gene and loading functions */
     const { geneticElement, setIsLoading, setLoadAmount } = useOutletContext<ViewContext>();
+    
+    /** Initialize URL state management for maintaining view state */
     
     /** Initialize URL state management for maintaining view state */
     const { initializeState } = useURLState<HeatMapViewerState>();
     
     /** Access Material-UI theme for consistent styling (dark/light mode support) */
+    
+    /** Access Material-UI theme for consistent styling (dark/light mode support) */
     const theme = useTheme();
+    
+    /** Reference to the SVG element where the D3.js visualization will be rendered */
     
     /** Reference to the SVG element where the D3.js visualization will be rendered */
     const svgRef = useRef<SVGSVGElement | null>(null);
@@ -54,11 +71,19 @@ export const HeatMapViewObject = () => {
      * Only runs when a genetic element is selected and caches the result indefinitely.
      */
     const { data, isLoading } = useQuery<HeatMapViewerData>({
-        queryKey: [`heatmap-view-${geneticElement?.id}`],
-        queryFn: async () => await HeatMapViewerLoader(geneticElement, setLoadAmount),
-        enabled: !!geneticElement,
-        staleTime: Infinity,
-    });
+    queryKey: [`heatmap-view-${geneticElement?.id}`],
+    queryFn: async () => {
+        console.log('🎯 HeatMap query executing for:', geneticElement?.id);
+        // Pass the current global cache state to enable cache checking
+        return await HeatMapViewerLoader(
+            geneticElement, 
+            setLoadAmount,
+            globalEFPData  // This is the third parameter that was missing
+        );
+    },
+    enabled: !!geneticElement,
+    staleTime: Infinity,
+});
 
     /**
      * Fetch data from all three sources (plant, experiment, cell) for the current gene.
@@ -167,6 +192,22 @@ export const HeatMapViewObject = () => {
      * These values are used to ensure consistent spacing even when some genes
      * don't have data for all samples in a database.
      */
+    /** Visual layout constants that define the heatmap's appearance */
+    const ICON_HEIGHT = 24;          /** Height of category icons in pixels */
+    const ICON_SPACING = 20;         /** Space above icons from top of SVG */
+    const TOP_MARGIN = 80;           /** Space above the data rows */
+    const LEFT_MARGIN = 100;         /** Space to the left for gene labels */
+    const ROW_SPACING = 10;          /** Vertical space between gene rows */
+    const MIN_CELL_WIDTH = 1.3;      /** Minimum width of each expression data cell */
+    const GROUP_GAP = 10;            /** Horizontal space between data categories */
+    const ROW_HEIGHT = 25;           /** Height of each gene row */
+    const DATABASE_GAP = 3;          /** Space between different databases within a category */
+
+    /**
+     * Defines the maximum number of samples expected for each experimental database.
+     * These values are used to ensure consistent spacing even when some genes
+     * don't have data for all samples in a database.
+     */
     const maxSamplesPerDBExperiment: Record<string, number> = {
         'Abiotic Stress II eFP': 16,
         'Abiotic Stress eFP': 154,
@@ -203,6 +244,8 @@ export const HeatMapViewObject = () => {
 
     /**
      * Maximum number of samples for plant tissue databases.
+    /**
+     * Maximum number of samples for plant tissue databases.
      */
     const maxSamplesPerDBPlant: Record<string, number> = {
         'AtGenExpress eFP': 47,
@@ -212,14 +255,22 @@ export const HeatMapViewObject = () => {
     /**
      * Maximum number of samples for cell-type specific databases.
      */
+    /**
+     * Maximum number of samples for cell-type specific databases.
+     */
     const maxSamplesPerDBCell: Record<string, number> = {
         'plant cell': 11,
     };
 
     /** Definition of the three main data categories */
+    /** Definition of the three main data categories */
     const validGroups = ['plant', 'experiment', 'cell'] as const;
     type GroupKey = typeof validGroups[number];
 
+    /**
+     * Filter to only include groups that have data for at least one loaded gene.
+     * This prevents empty categories from being displayed.
+     */
     /**
      * Filter to only include groups that have data for at least one loaded gene.
      * This prevents empty categories from being displayed.
@@ -232,7 +283,12 @@ export const HeatMapViewObject = () => {
      * Calculates the actual rendered width for a data group, including gaps between databases.
      * This ensures consistent spacing across all genes even when some have missing data.
      */
+    /**
+     * Calculates the actual rendered width for a data group, including gaps between databases.
+     * This ensures consistent spacing across all genes even when some have missing data.
+     */
     const calculateActualWidth = (group: GroupKey, cellWidth: number) => {
+        /** Select the appropriate database configuration based on group type */
         /** Select the appropriate database configuration based on group type */
         const maxSamplesPerDBObj = group === 'plant'
             ? maxSamplesPerDBPlant
@@ -243,11 +299,13 @@ export const HeatMapViewObject = () => {
         const allDbs = Object.keys(maxSamplesPerDBObj);
 
         /** Calculate total width: (samples × cell_width + gap) for each database */
+        /** Calculate total width: (samples × cell_width + gap) for each database */
         let totalWidth = 0;
         allDbs.forEach(db => {
             totalWidth += (maxSamplesPerDBObj[db] ?? 0) * cellWidth + DATABASE_GAP;
         });
 
+        /** Remove the trailing gap after the last database */
         /** Remove the trailing gap after the last database */
         if (allDbs.length > 0) totalWidth -= DATABASE_GAP;
 
@@ -258,15 +316,23 @@ export const HeatMapViewObject = () => {
      * Calculates layout information for all data groups including their widths and positions.
      * This information is used to properly space and align the heatmap columns.
      */
+    /**
+     * Calculates layout information for all data groups including their widths and positions.
+     * This information is used to properly space and align the heatmap columns.
+     */
     const groupInfo = useMemo(() => {
         const cellWidth = MIN_CELL_WIDTH;
+
+        /** Calculate the rendered width for each group */
 
         /** Calculate the rendered width for each group */
         const groupWidths = groups.map(group => {
             const maxWidth = calculateActualWidth(group, cellWidth);
             return { group, width: maxWidth };
         });
+        });
 
+        /** Calculate cumulative horizontal positions for each group */
         /** Calculate cumulative horizontal positions for each group */
         const groupPositions = groupWidths.map(({ group, width }, i) => {
             const position = i === 0
@@ -278,6 +344,10 @@ export const HeatMapViewObject = () => {
         return { cellWidth, groupPositions };
     }, [loadedGenes, groups]);
 
+    /**
+     * Creates a tooltip element that will display detailed information when hovering over cells.
+     * The tooltip is added to the document body and initially hidden.
+     */
     /**
      * Creates a tooltip element that will display detailed information when hovering over cells.
      * The tooltip is added to the document body and initially hidden.
@@ -294,6 +364,7 @@ export const HeatMapViewObject = () => {
             .style('box-shadow', '0 2px 4px rgba(0,0,0,0.1)');
 
         /** Cleanup function to remove tooltip when component unmounts */
+        /** Cleanup function to remove tooltip when component unmounts */
         return () => {
             tooltip.remove();
         };
@@ -303,11 +374,21 @@ export const HeatMapViewObject = () => {
      * Creates a color interpolation between yellow (low expression) and red (high expression).
      * Uses D3's linear scale to map expression values to colors within the specified range.
      */
+    /**
+     * Creates a color interpolation between yellow (low expression) and red (high expression).
+     * Uses D3's linear scale to map expression values to colors within the specified range.
+     */
     function interpolateColor(value: number, max: number, minColor: string, maxColor: string) {
         /** Handle edge case where maximum value is zero to avoid division by zero */
         if (max === 0) return minColor;
         
+        /** Handle edge case where maximum value is zero to avoid division by zero */
+        if (max === 0) return minColor;
+        
         const scale = d3.scaleLinear<string>()
+            .domain([0, max])        /** Map from 0 to maximum value in dataset */
+            .range([minColor, maxColor])  /** Yellow to red color gradient */
+            .clamp(true);           /** Ensure values outside domain are clamped to range */
             .domain([0, max])        /** Map from 0 to maximum value in dataset */
             .range([minColor, maxColor])  /** Yellow to red color gradient */
             .clamp(true);           /** Ensure values outside domain are clamped to range */
@@ -318,13 +399,20 @@ export const HeatMapViewObject = () => {
      * Main rendering effect that creates the D3.js heatmap visualization.
      * This runs whenever the gene data, layout information, or theme changes.
      */
+    /**
+     * Main rendering effect that creates the D3.js heatmap visualization.
+     * This runs whenever the gene data, layout information, or theme changes.
+     */
     useEffect(() => {
         if (!loadedGenes.length || !svgRef.current || !groupInfo) return;
+        
+        /** Select the SVG element and clear any existing content */
         
         /** Select the SVG element and clear any existing content */
         const svg = d3.select(svgRef.current);
         svg.selectAll('*').remove();
 
+        /** Create a main group element with appropriate margins for the data area */
         /** Create a main group element with appropriate margins for the data area */
         const mainGroup = svg.append('g').attr('transform', `translate(${LEFT_MARGIN}, ${TOP_MARGIN})`);
 
@@ -332,7 +420,12 @@ export const HeatMapViewObject = () => {
          * Render category icons and connecting branch lines for each data group.
          * This creates the visual hierarchy showing how data categories relate to the columns below.
          */
+        /** 
+         * Render category icons and connecting branch lines for each data group.
+         * This creates the visual hierarchy showing how data categories relate to the columns below.
+         */
         groupInfo.groupPositions.forEach(({ group, position, width }) => {
+            /** Select the appropriate icon component based on data category */
             /** Select the appropriate icon component based on data category */
             const Icon = group === 'plant' ? PlantEFPIcon : group === 'experiment' ? ExperimentEFPIcon : CellEFPIcon;
             const iconCenterX = LEFT_MARGIN + position + width / 2;
@@ -341,23 +434,33 @@ export const HeatMapViewObject = () => {
              * Render the category icon using React components within SVG foreignObject.
              * This allows us to use React components inside the D3 visualization.
              */
+
+            /** 
+             * Render the category icon using React components within SVG foreignObject.
+             * This allows us to use React components inside the D3 visualization.
+             */
             const foreignObject = svg.append('foreignObject')
+                .attr('x', iconCenterX - 15) /** Center the icon horizontally */
                 .attr('x', iconCenterX - 15) /** Center the icon horizontally */
                 .attr('y', ICON_SPACING)
                 .attr('width', 30)
                 .attr('height', ICON_HEIGHT);
+            
             
             const container = foreignObject.append('xhtml:div').node();
             if (container instanceof HTMLElement) {
                 const iconDiv = document.createElement('div');
                 container.appendChild(iconDiv);
                 /** Render the React icon component with theme provider for consistent styling */
+                /** Render the React icon component with theme provider for consistent styling */
                 createRoot(iconDiv).render(<ThemeProvider theme={theme}><Icon /></ThemeProvider>);
             }
 
             /** Only draw connecting lines if this group actually has data to display */
+            /** Only draw connecting lines if this group actually has data to display */
             const hasData = loadedGenes.some(geneData => geneData.data[group].length > 0);
             if (hasData && width > 0) {
+                /** Calculate vertical positions for the connecting lines */
                 /** Calculate vertical positions for the connecting lines */
                 const iconBottomY = ICON_SPACING + ICON_HEIGHT;
                 const branchStartY = iconBottomY + 5;
@@ -365,6 +468,7 @@ export const HeatMapViewObject = () => {
                 const groupStartX = LEFT_MARGIN + position;
                 const groupEndX = LEFT_MARGIN + position + width;
 
+                /** Draw horizontal line from icon center to start of data columns */
                 /** Draw horizontal line from icon center to start of data columns */
                 svg.append('line')
                     .attr('x1', iconCenterX)
@@ -375,6 +479,7 @@ export const HeatMapViewObject = () => {
                     .attr('stroke-width', 1);
 
                 /** Draw horizontal line from icon center to end of data columns */
+                /** Draw horizontal line from icon center to end of data columns */
                 svg.append('line')
                     .attr('x1', iconCenterX)
                     .attr('y1', branchStartY)
@@ -384,6 +489,7 @@ export const HeatMapViewObject = () => {
                     .attr('stroke-width', 1);
 
                 /** Draw left vertical bracket line marking start of group */
+                /** Draw left vertical bracket line marking start of group */
                 svg.append('line')
                     .attr('x1', groupStartX)
                     .attr('y1', branchStartY)
@@ -392,6 +498,7 @@ export const HeatMapViewObject = () => {
                     .attr('stroke', theme.palette.text.secondary)
                     .attr('stroke-width', 1);
 
+                /** Draw right vertical bracket line marking end of group */
                 /** Draw right vertical bracket line marking end of group */
                 svg.append('line')
                     .attr('x1', groupEndX)
@@ -407,11 +514,19 @@ export const HeatMapViewObject = () => {
          * Render the actual heatmap data for each gene.
          * Each gene gets its own row with expression data displayed as colored rectangles.
          */
+        /**
+         * Render the actual heatmap data for each gene.
+         * Each gene gets its own row with expression data displayed as colored rectangles.
+         */
         loadedGenes.forEach((geneData, row) => {
+            /** Calculate vertical position for this gene's row */
             /** Calculate vertical position for this gene's row */
             const yOffset = row * (ROW_HEIGHT + ROW_SPACING);
             /** Highlight the primary gene (currently selected) with bold text */
+            /** Highlight the primary gene (currently selected) with bold text */
             const isPrimary = geneticElement?.id === geneData.gene;
+
+            /** Render the gene label on the left side of the row */
 
             /** Render the gene label on the left side of the row */
             mainGroup.append('text')
@@ -423,12 +538,18 @@ export const HeatMapViewObject = () => {
                 .style('font-size', '14px')
                 .style('fill', theme.palette.text.primary)
                 .style("font-weight", isPrimary ? "bold" : "normal");
+                .style("font-weight", isPrimary ? "bold" : "normal");
 
             /**
              * Render expression data cells for each group (plant, experiment, cell).
              * Each group can contain multiple databases, and each database can have multiple samples.
              */
+            /**
+             * Render expression data cells for each group (plant, experiment, cell).
+             * Each group can contain multiple databases, and each database can have multiple samples.
+             */
             groupInfo.groupPositions.forEach(({ group, position }) => {
+                /** Get all possible databases for this group type */
                 /** Get all possible databases for this group type */
                 const allDbs = group === 'plant'
                     ? Object.keys(maxSamplesPerDBPlant)
@@ -437,19 +558,27 @@ export const HeatMapViewObject = () => {
                         : Object.keys(maxSamplesPerDBExperiment);
 
                 /** Track horizontal position as we render each database */
+                /** Track horizontal position as we render each database */
                 let currentX = position;
                 
                 /** Render cells for each database in this group */
+                
+                /** Render cells for each database in this group */
                 allDbs.forEach(db => {
+                    /** Get configuration for this specific database */
                     /** Get configuration for this specific database */
                     const maxSamplesPerDBObj = group === 'plant' ? maxSamplesPerDBPlant
                         : group === 'cell' ? maxSamplesPerDBCell
                         : maxSamplesPerDBExperiment;
                     
+                    
                     const dbMaxCount = maxSamplesPerDBObj[db] ?? 0;
                     /** Filter this gene's data to only include samples from current database */
                     const dbSamples = geneData.data[group].filter(p => p.database === db);
+                    /** Filter this gene's data to only include samples from current database */
+                    const dbSamples = geneData.data[group].filter(p => p.database === db);
                     const rectWidth = groupInfo.cellWidth;
+                    /** Find the maximum expression value for this database to normalize colors */
                     /** Find the maximum expression value for this database to normalize colors */
                     const dbMaxValue = d3.max(dbSamples, p => p.value) ?? 0;
 
@@ -457,9 +586,14 @@ export const HeatMapViewObject = () => {
                      * Render a cell for each possible sample slot in this database.
                      * If a gene doesn't have data for a sample, render a grey placeholder.
                      */
+                    /**
+                     * Render a cell for each possible sample slot in this database.
+                     * If a gene doesn't have data for a sample, render a grey placeholder.
+                     */
                     for (let i = 0; i < dbMaxCount; i++) {
                         const point = dbSamples[i] ?? null;
 
+                        /** Create a rectangle for each data point or placeholder */
                         /** Create a rectangle for each data point or placeholder */
                         mainGroup.append('rect')
                             .attr('x', currentX + i * rectWidth)
@@ -469,8 +603,10 @@ export const HeatMapViewObject = () => {
                             .attr('fill', point
                                 ? interpolateColor(point.value, dbMaxValue, "#ffff00", "#ff0000")
                                 : "#ccc" /** Grey placeholder for missing data */
+                                : "#ccc" /** Grey placeholder for missing data */
                             )
                             .style('cursor', point ? 'pointer' : 'default')
+                            /** Show detailed information on hover for data points */
                             /** Show detailed information on hover for data points */
                             .on('mouseover', (e) => {
                                 if (!point) return;
@@ -485,6 +621,7 @@ export const HeatMapViewObject = () => {
                                     );
                             })
                             /** Update tooltip position as mouse moves */
+                            /** Update tooltip position as mouse moves */
                             .on('mousemove', (e) => {
                                 if (!point) return;
                                 d3.select('.heatmap-tooltip')
@@ -492,11 +629,13 @@ export const HeatMapViewObject = () => {
                                     .style('left', (e.pageX + 10) + 'px');
                             })
                             /** Hide tooltip when mouse leaves */
+                            /** Hide tooltip when mouse leaves */
                             .on('mouseout', () =>
                                 d3.select('.heatmap-tooltip').style('visibility', 'hidden')
                             );
                     }
 
+                    /** Move to the next database position */
                     /** Move to the next database position */
                     currentX += dbMaxCount * rectWidth + DATABASE_GAP;
                 });
@@ -504,6 +643,10 @@ export const HeatMapViewObject = () => {
         });
     }, [loadedGenes, groupInfo, theme]);
 
+    /** 
+     * Render the main component container with title and SVG.
+     * The SVG size is calculated based on the number of genes and layout constants.
+     */
     /** 
      * Render the main component container with title and SVG.
      * The SVG size is calculated based on the number of genes and layout constants.
@@ -529,9 +672,19 @@ export const HeatMapViewObject = () => {
  * @param loadEvent - Callback function to report loading progress
  * @returns Promise containing the formatted heatmap data
  */
+/**
+ * Data loader function that fetches expression data for a specific genetic element.
+ * This function runs asynchronously and combines data from three different sources:
+ * plant tissues, experimental conditions, and cell types.
+ * 
+ * @param geneticElement - The gene for which to load expression data
+ * @param loadEvent - Callback function to report loading progress
+ * @returns Promise containing the formatted heatmap data
+ */
 export const HeatMapViewerLoader = async (
     geneticElement: GeneticElement | null,
-    loadEvent: (loaded: number) => void
+    loadEvent: (loaded: number) => void,
+    globalEFPData: typeof globalEFPDataAtom extends Atom<infer T> ? T : any  // Type for global cache
 ): Promise<HeatMapViewerData> => {
     /** Validate that a genetic element was provided */
     if (!geneticElement) throw ViewDataError.UNSUPPORTED_GENE;
@@ -584,6 +737,7 @@ export const HeatMapViewerLoader = async (
                             value: t.mean,
                             sample: t.name,
                             database: experiment.views?.[i]?.name ?? g.name
+                            database: experiment.views?.[i]?.name ?? g.name
                         }))
                     )
                 ) ?? [],
@@ -597,7 +751,7 @@ export const HeatMapViewerLoader = async (
                         sample: t.name,
                         database: g.name
                     }))
-                ) ?? [],
+                ) ?? cachedCell?.data?.cell ?? [],
             },
         },
         /** 

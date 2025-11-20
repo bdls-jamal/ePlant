@@ -53,6 +53,7 @@ export const PlantEFP = () => {
   useEffect(() => {
     initializeState(EFPViewerStateSchema)
   }, [initializeState])
+  }, [initializeState])
 
   /** Update parent component's loading state when our loading state changes */
   useEffect(() => {
