@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { useAtom } from 'jotai';
 import { createRoot } from 'react-dom/client';
 import { useOutletContext } from 'react-router-dom';
 
@@ -9,11 +8,10 @@ import { useURLState } from '@eplant/state/URLStateProvider';
 import { ViewContext } from '@eplant/UI/Layout/ViewContainer/types';
 import { ViewDataError } from '@eplant/View';
 import { ThemeProvider, useTheme } from '@mui/material/styles';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 
 import { cellEFPLoader } from '../CellEFP/CellEFP';
 import CellEFPIcon from '../CellEFP/icon';
-import { globalEFPDataAtom } from '../eFP/eFPAtoms';
 import { EFPGroup, EFPTissue } from '../eFP/types';
 import { EFPViewerLoader } from '../eFP/Viewer/EFPViewer';
 import { experimentEFPs, experimentEFPViews } from '../ExperimentEFP/efps';
@@ -51,12 +49,6 @@ export const HeatMapViewObject = () => {
     /** Reference to the SVG element where the D3.js visualization will be rendered */
     const svgRef = useRef<SVGSVGElement | null>(null);
 
-    /** 
-     * Global state atom that stores expression data for all loaded genes.
-     * This is shared across different components and persists data to avoid re-fetching.
-     */
-    const [globalEFPData, setGlobalEFPData] = useAtom(globalEFPDataAtom);
-
     /**
      * React Query hook to fetch heatmap data for the current genetic element.
      * Only runs when a genetic element is selected and caches the result indefinitely.
@@ -68,74 +60,111 @@ export const HeatMapViewObject = () => {
         staleTime: Infinity,
     });
 
+    /**
+     * Fetch data from all three sources (plant, experiment, cell) for the current gene.
+     * React Query will automatically use cached data if it's already been loaded by other views.
+     */
+    const queries = useQueries({
+        queries: [
+            {
+                queryKey: [`plant-efp-${geneticElement?.id}`],
+                queryFn: async () => {
+                    console.log(`[HeatMap] 🔄 Fetching PLANT data for gene: ${geneticElement?.id}`);
+                    const result = await EFPViewerLoader(geneticElement, plantEFPs, plantEFPViews, () => {});
+                    console.log(`[HeatMap] ✅ PLANT data fetched for gene: ${geneticElement?.id}`, result);
+                    return result;
+                },
+                enabled: !!geneticElement,
+                staleTime: Infinity,
+            },
+            {
+                queryKey: [`experiment-efp-${geneticElement?.id}`],
+                queryFn: async () => {
+                    console.log(`[HeatMap] 🔄 Fetching EXPERIMENT data for gene: ${geneticElement?.id}`);
+                    const result = await EFPViewerLoader(geneticElement, experimentEFPs, experimentEFPViews, () => {});
+                    console.log(`[HeatMap] ✅ EXPERIMENT data fetched for gene: ${geneticElement?.id}`, result);
+                    return result;
+                },
+                enabled: !!geneticElement,
+                staleTime: Infinity,
+            },
+            {
+                queryKey: [`cell-efp-${geneticElement?.id}`],
+                queryFn: async () => {
+                    console.log(`[HeatMap] 🔄 Fetching CELL data for gene: ${geneticElement?.id}`);
+                    const result = await cellEFPLoader(geneticElement, () => {});
+                    console.log(`[HeatMap] ✅ CELL data fetched for gene: ${geneticElement?.id}`, result);
+                    return result;
+                },
+                enabled: !!geneticElement,
+                staleTime: Infinity,
+            },
+        ],
+    });
+
+    const [plantQuery, experimentQuery, cellQuery] = queries;
+
     /** Initialize the URL state schema when component mounts */
     useEffect(() => initializeState(HeatMapViewStateSchema), [initializeState]);
     
-    /** Update parent component's loading state when our loading state changes */
-    useEffect(() => setIsLoading(isLoading), [isLoading, setIsLoading]);
+    /** Update parent component's loading state when any query is loading */
+    useEffect(() => {
+        const anyLoading = queries.some(q => q.isLoading);
+        setIsLoading(anyLoading);
+    }, [queries, setIsLoading]);
 
     /**
-     * Processes the global expression data to create a unified list of genes with their data.
-     * Combines data from plant, experiment, and cell categories for all loaded genes.
+     * Processes the cached query data to create a unified list of genes with their data.
+     * Combines data from plant, experiment, and cell categories for the current gene.
      */
     const loadedGenes = useMemo<GeneData[]>(() => {
-        /** Get unique gene IDs from all three data categories */
-        const ids = Array.from(new Set([
-            ...Object.keys(globalEFPData.plant),
-            ...Object.keys(globalEFPData.experiment),
-            ...Object.keys(globalEFPData.cell),
-        ]));
+        if (!geneticElement) return [];
 
-        /** 
-         * Transform each gene ID into a structured object containing all its expression data.
-         * Each gene gets data from plant tissues, experimental conditions, and cell types.
-         */
-        return ids
-            .map(id => ({
-                gene: id,
-                data: {
-                    plant: globalEFPData.plant[id]?.data.plant ?? [],
-                    experiment: globalEFPData.experiment[id]?.data.experiment ?? [],
-                    cell: globalEFPData.cell[id]?.data.cell ?? [],
-                },
+        const geneId = geneticElement.id;
+
+        /** Transform the current gene's data into structured format */
+        const plantData = plantQuery.data?.viewData?.flatMap((sample, i) =>
+            sample.groups.flatMap((g: EFPGroup) =>
+                g.tissues.map((t: EFPTissue) => ({
+                    value: t.mean,
+                    sample: t.name,
+                    database: plantQuery.data.views?.[i]?.name ?? g.name
+                }))
+            )
+        ) ?? [];
+
+        const experimentData = experimentQuery.data?.viewData?.flatMap((sample, i) =>
+            sample.groups.flatMap((g: EFPGroup) =>
+                g.tissues.map((t: EFPTissue) => ({
+                    value: t.mean,
+                    sample: t.name,
+                    database: experimentQuery.data.views?.[i]?.name ?? g.name
+                }))
+            )
+        ) ?? [];
+
+        const cellData = cellQuery.data?.viewData?.groups?.flatMap((g: EFPGroup) =>
+            g.tissues.map((t: EFPTissue) => ({
+                value: t.mean,
+                sample: t.name,
+                database: g.name
             }))
-            /** Only include genes that have data in at least one category */
-            .filter(g =>
-                g.data.plant.length || g.data.experiment.length || g.data.cell.length
-            );
-    }, [globalEFPData]);
+        ) ?? [];
 
-    /**
-     * Updates the global expression data cache when new data is loaded for the current gene.
-     * This ensures that once data is loaded for a gene, it persists across component re-renders.
-     */
-    useEffect(() => {
-        if (!geneticElement || !data?.geneData) return;
-        const id = geneticElement.id;
-        const incoming = data.geneData.data;
+        /** Return the gene data if at least one category has data */
+        if (plantData.length || experimentData.length || cellData.length) {
+            return [{
+                gene: geneId,
+                data: {
+                    plant: plantData,
+                    experiment: experimentData,
+                    cell: cellData,
+                },
+            }];
+        }
 
-        /** Merge new data with existing cached data */
-        setGlobalEFPData(prev => {
-            const prevPlant = prev.plant[id]?.data.plant ?? [];
-            const prevExp = prev.experiment[id]?.data.experiment ?? [];
-            const prevCell = prev.cell[id]?.data.cell ?? [];
-
-            const merged = {
-                plant: incoming.plant?.length ? incoming.plant : prevPlant,
-                experiment: incoming.experiment?.length ? incoming.experiment : prevExp,
-                cell: incoming.cell?.length ? incoming.cell : prevCell,
-            };
-
-            const nextEntry = { gene: id, data: merged };
-
-            /** Update all three category caches with the merged data */
-            return {
-                plant: { ...prev.plant, [id]: nextEntry },
-                experiment: { ...prev.experiment, [id]: nextEntry },
-                cell: { ...prev.cell, [id]: nextEntry },
-            };
-        });
-    }, [geneticElement, data, setGlobalEFPData]);
+        return [];
+    }, [geneticElement, plantQuery.data, experimentQuery.data, cellQuery.data]);
 
     /** Visual layout constants that define the heatmap's appearance */
     const ICON_HEIGHT = 24;          /** Height of category icons in pixels */
@@ -527,6 +556,7 @@ export const HeatMapViewerLoader = async (
     /**
      * Load expression data from all three sources in parallel for better performance.
      * Each loader function fetches data from different expression databases.
+     * React Query will cache these results automatically based on their query keys.
      */
     const [plant, experiment, cell] = await Promise.all([
         EFPViewerLoader(geneticElement, plantEFPs, plantEFPViews, () => {}),
