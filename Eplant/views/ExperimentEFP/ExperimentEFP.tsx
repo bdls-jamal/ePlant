@@ -1,13 +1,10 @@
 import { useEffect } from 'react'
-import { useSetAtom } from 'jotai'
 import { useOutletContext } from 'react-router-dom'
 
 import { useURLState } from '@eplant/state/URLStateProvider'
 import { ViewContext } from '@eplant/UI/Layout/ViewContainer/types'
 import { useQuery } from '@tanstack/react-query'
 
-import { globalEFPDataAtom } from '../eFP/eFPAtoms'
-import { EFPViewerActions } from '../eFP/Viewer/actions'
 import { EFPViewer, EFPViewerLoader } from '../eFP/Viewer/EFPViewer'
 import {
   EFPViewerData,
@@ -17,57 +14,60 @@ import {
 
 import { experimentEFPs, experimentEFPViews } from './efps'
 
+/**
+ * ExperimentEFP component displays gene expression data across different experimental conditions.
+ * It fetches data using React Query, which automatically caches the results
+ * based on the gene ID. This cached data can be reused by other components
+ * like the HeatMap view without refetching.
+ */
 export const ExperimentEFP = () => {
   const { geneticElement, setIsLoading, setLoadAmount } =
     useOutletContext<ViewContext>()
   const { state, setState, initializeState } = useURLState<EFPViewerState>()
-  const setGlobalEFPData = useSetAtom(globalEFPDataAtom);
+
+  /**
+   * Fetch experiment expression data for the current genetic element.
+   * React Query automatically caches this data with the key `experiment-efp-${geneId}`.
+   * Other components can access this cached data by using the same query key.
+   */
   const { data, isLoading, isError, error } = useQuery<EFPViewerData>({
-    queryKey: [`plant-efp-${geneticElement?.id}`],
-      queryFn: async () => {
-        const result = await EFPViewerLoader(geneticElement, experimentEFPs, experimentEFPViews, setLoadAmount);
-        if (geneticElement?.id && result?.viewData) {
-          setGlobalEFPData(prev => ({
-            ...prev,
-            experiment: {
-              ...prev.experiment,
-              [geneticElement.id]: {
-                gene: geneticElement.id,
-                data: {
-                  plant: [],
-                  experiment: result.viewData.flatMap((sample) =>
-                    sample.groups.flatMap((group) =>
-                      group.tissues.map((tissue) => ({
-                        value: tissue.mean,
-                        sample: tissue.name,
-                        database: group.name
-                      }))
-                    )
-                  ),
-                  cell: []
-                }
-              }
-            }
-          }));
-        }
-        return result;
-      },
+    queryKey: [`experiment-efp-${geneticElement?.id}`],
+    queryFn: async () => {
+      console.log(
+        `[ExperimentEFP] 🔄 Fetching data for gene: ${geneticElement?.id}`
+      )
+      const result = await EFPViewerLoader(
+        geneticElement,
+        experimentEFPs,
+        experimentEFPViews,
+        setLoadAmount
+      )
+      console.log(
+        `[ExperimentEFP] ✅ Data fetched for gene: ${geneticElement?.id}`,
+        result
+      )
+      return result
+    },
     enabled: !!geneticElement,
     staleTime: Infinity,
     refetchOnMount: false,
-    refetchOnWindowFocus: false
-  });
+    refetchOnWindowFocus: false,
+  })
 
+  /** Initialize the URL state schema when component mounts */
   useEffect(() => {
-    // On mount, set the active actions and initialize the state
     initializeState(EFPViewerStateSchema)
-  }, [])
+  }, [initializeState])
 
+  /** Update parent component's loading state when our loading state changes */
   useEffect(() => {
     setIsLoading(isLoading)
   }, [isLoading, setIsLoading])
 
+  /** Don't render the viewer until data is loaded and state is initialized */
   if (isLoading || isError || !data || !state) return <></>
+
+  /** Render the EFP viewer with the fetched data */
   return (
     <EFPViewer
       data={data}
@@ -75,7 +75,6 @@ export const ExperimentEFP = () => {
       geneticElement={geneticElement}
       efps={experimentEFPs}
       setViewState={setState}
-    ></EFPViewer>
+    />
   )
 }
-

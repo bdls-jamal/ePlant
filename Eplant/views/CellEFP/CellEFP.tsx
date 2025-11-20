@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from 'react'
-import { useSetAtom } from 'jotai'
 import { useOutletContext } from 'react-router-dom'
 
 import GeneticElement from '@eplant/GeneticElement'
@@ -10,8 +9,6 @@ import { ViewDataError } from '@eplant/View'
 import { Box, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 
-import { globalEFPDataAtom } from '../eFP/eFPAtoms'
-import { EFPData } from '../eFP/types'
 import Legend from '../eFP/Viewer/legend'
 
 import { CellEFPDataObject } from './CellEFPDataObject'
@@ -21,37 +18,31 @@ import {
   CellEFPViewerState,
 } from './types'
 
+/**
+ * CellEFPView component displays gene expression data across different cell types.
+ * It fetches data using React Query, which automatically caches the results
+ * based on the gene ID. This cached data can be reused by other components
+ * like the HeatMap view without refetching.
+ */
 export const CellEFPView = () => {
   const { geneticElement, setIsLoading, setLoadAmount } =
     useOutletContext<ViewContext>()
   const { state, setState, initializeState } = useURLState<CellEFPViewerState>()
-  const setGlobalEFPData = useSetAtom(globalEFPDataAtom)
+
+  /**
+   * Fetch cell expression data for the current genetic element.
+   * React Query automatically caches this data with the key `cell-efp-${geneId}`.
+   * Other components can access this cached data by using the same query key.
+   */
   const { data, isLoading, isError, error } = useQuery<CellEFPViewerData>({
     queryKey: [`cell-efp-${geneticElement?.id}`],
     queryFn: async () => {
+      console.log(`[CellEFP] 🔄 Fetching data for gene: ${geneticElement?.id}`)
       const result = await cellEFPLoader(geneticElement, setLoadAmount)
-      if (geneticElement?.id && result?.viewData) {
-        setGlobalEFPData(prev => ({
-          ...prev,
-          cell: {
-            ...prev.cell,
-            [geneticElement.id]: {
-              gene: geneticElement.id,
-              data: {
-                plant: [],
-                experiment: [],
-                cell: result.viewData.groups.flatMap(group =>
-                  group.tissues.map(tissue => ({
-                    value: tissue.mean,
-                    sample: tissue.name,
-                    database: group.name
-                  }))
-                )
-              }
-            }
-          }
-        }));
-      }
+      console.log(
+        `[CellEFP] ✅ Data fetched for gene: ${geneticElement?.id}`,
+        result
+      )
       return result
     },
     enabled: !!geneticElement,
@@ -59,16 +50,18 @@ export const CellEFPView = () => {
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   })
-    
-  useEffect(() => {
-    // On mount, initialize state
-    initializeState(CellEFPStateSchema)
-  }, [])
 
+  /** Initialize the URL state schema when component mounts */
+  useEffect(() => {
+    initializeState(CellEFPStateSchema)
+  }, [initializeState])
+
+  /** Update parent component's loading state when our loading state changes */
   useEffect(() => {
     setIsLoading(isLoading)
-  }, [isLoading])
+  }, [isLoading, setIsLoading])
 
+  /** Memoize the EFP component to avoid unnecessary re-renders */
   const efp = useMemo(() => {
     const Component = CellEFPDataObject.component
     if (data) {
@@ -78,6 +71,7 @@ export const CellEFPView = () => {
     }
   }, [geneticElement?.id, data])
 
+  /** Don't render the viewer until data is loaded and state is initialized */
   if (isLoading || isError || !data || !state) return <></>
 
   return (
@@ -157,11 +151,20 @@ export const CellEFPView = () => {
   )
 }
 
+/**
+ * Loader function that fetches cell expression data for a specific genetic element.
+ * This function is called by React Query and its results are automatically cached.
+ *
+ * @param geneticElement - The gene for which to load expression data
+ * @param loadEvent - Callback function to report loading progress
+ * @returns Promise containing the formatted cell EFP data
+ */
 export const cellEFPLoader = async (
   geneticElement: GeneticElement | null,
   loadEvent: (loaded: number) => void
 ) => {
   if (!geneticElement) throw ViewDataError.UNSUPPORTED_GENE
+
   let totalLoaded = 0
   const viewData = await CellEFPDataObject.getInitialData(
     geneticElement,

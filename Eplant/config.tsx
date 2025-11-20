@@ -35,7 +35,7 @@ const userViewMetadata = [
   ExperimentEFP,
   // WorldEFP,
   ChromosomeViewerObject,
-  HeatMap
+  HeatMap,
 ]
 
 // List of views that are used to lookup a view by id

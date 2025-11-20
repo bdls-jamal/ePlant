@@ -5,7 +5,6 @@ import { useURLState } from '@eplant/state/URLStateProvider'
 import { ViewContext } from '@eplant/UI/Layout/ViewContainer/types'
 import { useQuery } from '@tanstack/react-query'
 
-import { useEFPData } from '../eFP/eFPLoading'
 import { EFPViewer, EFPViewerLoader } from '../eFP/Viewer/EFPViewer'
 import {
   EFPViewerData,
@@ -15,61 +14,65 @@ import {
 
 import { plantEFPs, plantEFPViews } from './efps'
 
+/**
+ * PlantEFP component displays gene expression data across different plant tissues.
+ * It fetches data using React Query, which automatically caches the results
+ * based on the gene ID. This cached data can be reused by other components
+ * like the HeatMap view without refetching.
+ */
 export const PlantEFP = () => {
   const { geneticElement, setIsLoading, setLoadAmount } =
     useOutletContext<ViewContext>()
   const { state, setState, initializeState } = useURLState<EFPViewerState>()
-  
-  // Use the new caching hook
-  const { cachedData, loadData, hasCache } = useEFPData(geneticElement, 'plant')
 
-  // Query with integrated cache checking
-  const { data, isLoading, isError } = useQuery<EFPViewerData>({
+  /**
+   * Fetch plant expression data for the current genetic element.
+   * React Query automatically caches this data with the key `plant-efp-${geneId}`.
+   * Other components can access this cached data by using the same query key.
+   */
+  const { data, isLoading, isError, error } = useQuery<EFPViewerData>({
     queryKey: [`plant-efp-${geneticElement?.id}`],
     queryFn: async () => {
-      console.log('🌱 PlantEFP query executing for:', geneticElement?.id);
-      
-      // Use the loadData function which checks cache first
-      return await loadData(async () => {
-        console.log('📡 PlantEFP: Making API call');
-        const result = await EFPViewerLoader(
-          geneticElement, 
-          plantEFPs, 
-          plantEFPViews, 
-          setLoadAmount
-        );
-        
-        // Return the full result - it already has the right structure
-        return result;
-      });
+      console.log(`[PlantEFP] 🔄 Fetching data for gene: ${geneticElement?.id}`)
+      const result = await EFPViewerLoader(
+        geneticElement,
+        plantEFPs,
+        plantEFPViews,
+        setLoadAmount
+      )
+      console.log(
+        `[PlantEFP] ✅ Data fetched for gene: ${geneticElement?.id}`,
+        result
+      )
+      return result
     },
     enabled: !!geneticElement,
     staleTime: Infinity,
     refetchOnMount: false,
-    refetchOnWindowFocus: false
-  });
+    refetchOnWindowFocus: false,
+  })
 
+  /** Initialize the URL state schema when component mounts */
   useEffect(() => {
-    // On mount, set the active actions and initialize the state
     initializeState(EFPViewerStateSchema)
   }, [initializeState])
 
+  /** Update parent component's loading state when our loading state changes */
   useEffect(() => {
     setIsLoading(isLoading)
   }, [isLoading, setIsLoading])
 
-  // Use cached data immediately if available, otherwise wait for query
-  const displayData = (data || cachedData) as EFPViewerData | undefined;
+  /** Don't render the viewer until data is loaded and state is initialized */
+  if (isLoading || isError || !data || !state) return <></>
 
-  if (isLoading || isError || !displayData || !state) return <></>
-
+  /** Render the EFP viewer with the fetched data */
   return (
-      <EFPViewer
-        data={displayData}
-        state={state}
-        geneticElement={geneticElement}
-        efps={plantEFPs}
-        setViewState={setState}
-      />
+    <EFPViewer
+      data={data}
+      state={state}
+      geneticElement={geneticElement}
+      efps={plantEFPs}
+      setViewState={setState}
+    />
   )
 }

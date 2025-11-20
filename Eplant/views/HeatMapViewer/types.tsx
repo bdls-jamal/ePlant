@@ -1,37 +1,37 @@
 import { z } from 'zod'
 
-/** 
+/**
  * Mapping of view types to their corresponding display names.
  * Used for switching between different visualization modes.
  */
 export type ViewMap = {
-  plant: 'plant';
-  experiment: 'tissue';
-  cell: 'Cell eFP';
-};
+  plant: 'plant'
+  experiment: 'tissue'
+  cell: 'Cell eFP'
+}
 
 /**
  * Represents a single data point in the heatmap.
  * Contains information about the value, sample type, and source database.
  */
 type DataPoint = {
-  value: number;
-  sample: string;
-  database: string;
-};
+  value: number
+  sample: string
+  database: string
+}
 
 /**
  * Structure representing gene expression data across different view types.
  * Contains data points for plant, experiment, and cell views.
  */
 export type GeneData = {
-  gene: string;
+  gene: string
   data: {
-    plant: DataPoint[];
-    experiment: DataPoint[];
-    cell: DataPoint[];
-  };
-};
+    plant: DataPoint[]
+    experiment: DataPoint[]
+    cell: DataPoint[]
+  }
+}
 
 /** Define the data structure returned by the loader */
 export interface HeatMapViewerData {
