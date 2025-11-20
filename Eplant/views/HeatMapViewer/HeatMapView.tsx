@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { useAtom } from 'jotai';
+import { Atom, useAtom } from 'jotai';
 import { createRoot } from 'react-dom/client';
 import { useOutletContext } from 'react-router-dom';
 
@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { cellEFPLoader } from '../CellEFP/CellEFP';
 import CellEFPIcon from '../CellEFP/icon';
+import { GlobalEFPData } from '../eFP/eFPAtoms';
 import { globalEFPDataAtom } from '../eFP/eFPAtoms';
 import { EFPGroup, EFPTissue } from '../eFP/types';
 import { EFPViewerLoader } from '../eFP/Viewer/EFPViewer';
@@ -62,11 +63,20 @@ export const HeatMapViewObject = () => {
      * Only runs when a genetic element is selected and caches the result indefinitely.
      */
     const { data, isLoading } = useQuery<HeatMapViewerData>({
-        queryKey: [`heatmap-view-${geneticElement?.id}`],
-        queryFn: async () => await HeatMapViewerLoader(geneticElement, setLoadAmount),
-        enabled: !!geneticElement,
-        staleTime: Infinity,
-    });
+    queryKey: [`heatmap-view-${geneticElement?.id}`],
+    queryFn: async () => {
+        console.log('🎯 HeatMap query executing for:', geneticElement?.id);
+        // Pass the current global cache state to enable cache checking
+        return await HeatMapViewerLoader(
+            geneticElement, 
+            setLoadAmount,
+            globalEFPData,
+            setGlobalEFPData
+        );
+    },
+    enabled: !!geneticElement,
+    staleTime: Infinity,
+});
 
     /** Initialize the URL state schema when component mounts */
     useEffect(() => initializeState(HeatMapViewStateSchema), [initializeState]);
@@ -79,63 +89,56 @@ export const HeatMapViewObject = () => {
      * Combines data from plant, experiment, and cell categories for all loaded genes.
      */
     const loadedGenes = useMemo<GeneData[]>(() => {
-        /** Get unique gene IDs from all three data categories */
         const ids = Array.from(new Set([
             ...Object.keys(globalEFPData.plant),
             ...Object.keys(globalEFPData.experiment),
             ...Object.keys(globalEFPData.cell),
         ]));
 
-        /** 
-         * Transform each gene ID into a structured object containing all its expression data.
-         * Each gene gets data from plant tissues, experimental conditions, and cell types.
-         */
+        // Helper to safely extract data from cache regardless of format
+        const extractData = (entry: any, type: 'plant' | 'experiment' | 'cell') => {
+            if (!entry) return [];
+            // GeneData format
+            if (entry.data?.[type]) return entry.data[type];
+            // EFPViewerData format - transform it
+            if (entry.viewData) {
+                if (type === 'cell' && entry.viewData.groups) {
+                    return entry.viewData.groups.flatMap((g: EFPGroup) =>
+                        g.tissues.map((t: EFPTissue) => ({
+                            value: t.mean,
+                            sample: t.name,
+                            database: g.name
+                        }))
+                    );
+                } else if (Array.isArray(entry.viewData)) {
+                    return entry.viewData.flatMap((sample: any, i: number) =>
+                        sample.groups.flatMap((g: EFPGroup) =>
+                            g.tissues.map((t: EFPTissue) => ({
+                                value: t.mean,
+                                sample: t.name,
+                                database: entry.views?.[i]?.name ?? g.name
+                            }))
+                        )
+                    );
+                }
+            }
+            return [];
+        };
+
         return ids
             .map(id => ({
                 gene: id,
                 data: {
-                    plant: globalEFPData.plant[id]?.data.plant ?? [],
-                    experiment: globalEFPData.experiment[id]?.data.experiment ?? [],
-                    cell: globalEFPData.cell[id]?.data.cell ?? [],
+                    plant: extractData(globalEFPData.plant[id], 'plant'),
+                    experiment: extractData(globalEFPData.experiment[id], 'experiment'),
+                    cell: extractData(globalEFPData.cell[id], 'cell'),
                 },
             }))
-            /** Only include genes that have data in at least one category */
             .filter(g =>
                 g.data.plant.length || g.data.experiment.length || g.data.cell.length
             );
     }, [globalEFPData]);
 
-    /**
-     * Updates the global expression data cache when new data is loaded for the current gene.
-     * This ensures that once data is loaded for a gene, it persists across component re-renders.
-     */
-    useEffect(() => {
-        if (!geneticElement || !data?.geneData) return;
-        const id = geneticElement.id;
-        const incoming = data.geneData.data;
-
-        /** Merge new data with existing cached data */
-        setGlobalEFPData(prev => {
-            const prevPlant = prev.plant[id]?.data.plant ?? [];
-            const prevExp = prev.experiment[id]?.data.experiment ?? [];
-            const prevCell = prev.cell[id]?.data.cell ?? [];
-
-            const merged = {
-                plant: incoming.plant?.length ? incoming.plant : prevPlant,
-                experiment: incoming.experiment?.length ? incoming.experiment : prevExp,
-                cell: incoming.cell?.length ? incoming.cell : prevCell,
-            };
-
-            const nextEntry = { gene: id, data: merged };
-
-            /** Update all three category caches with the merged data */
-            return {
-                plant: { ...prev.plant, [id]: nextEntry },
-                experiment: { ...prev.experiment, [id]: nextEntry },
-                cell: { ...prev.cell, [id]: nextEntry },
-            };
-        });
-    }, [geneticElement, data, setGlobalEFPData]);
 
     /** Visual layout constants that define the heatmap's appearance */
     const ICON_HEIGHT = 24;          /** Height of category icons in pixels */
@@ -517,82 +520,200 @@ export const HeatMapViewObject = () => {
  */
 export const HeatMapViewerLoader = async (
     geneticElement: GeneticElement | null,
-    loadEvent: (loaded: number) => void
+    loadEvent: (loaded: number) => void,
+    globalEFPData: typeof globalEFPDataAtom extends Atom<infer T> ? T : any,  // Type for global cache
+    setGlobalEFPData: (update: (prev: GlobalEFPData) => GlobalEFPData) => void
 ): Promise<HeatMapViewerData> => {
-    /** Validate that a genetic element was provided */
     if (!geneticElement) throw ViewDataError.UNSUPPORTED_GENE;
 
     const geneId = geneticElement.id;
     
-    /**
-     * Load expression data from all three sources in parallel for better performance.
-     * Each loader function fetches data from different expression databases.
-     */
-    const [plant, experiment, cell] = await Promise.all([
-        EFPViewerLoader(geneticElement, plantEFPs, plantEFPViews, () => {}),
-        EFPViewerLoader(geneticElement, experimentEFPs, experimentEFPViews, () => {}),
-        cellEFPLoader(geneticElement, () => {}),
-    ]);
+    // Check if we already have complete data in cache
+    const cachedPlant = globalEFPData.plant[geneId];
+    const cachedExperiment = globalEFPData.experiment[geneId];
+    const cachedCell = globalEFPData.cell[geneId];
+    
+    // Helper to check if cache has data
+    const hasData = (entry: any, type: 'plant' | 'experiment' | 'cell') => {
+        if (!entry) return false;
+        if (entry.data?.[type]?.length > 0) return true;
+        if (entry.viewData) return true;
+        return false;
+    };
 
-    /** Report 100% loading completion */
+    console.log('🔍 Cache check:', {
+        cachedPlant: !!cachedPlant,
+        cachedExperiment: !!cachedExperiment,
+        cachedCell: !!cachedCell,
+        hasPlant: hasData(cachedPlant, 'plant'),
+        hasExperiment: hasData(cachedExperiment, 'experiment'),
+        hasCell: hasData(cachedCell, 'cell'),
+    });
+
+    const hasCompleteCache = 
+        hasData(cachedPlant, 'plant') &&
+        hasData(cachedExperiment, 'experiment') &&
+        hasData(cachedCell, 'cell');
+
+    console.log('✅ hasCompleteCache:', hasCompleteCache);
+
+    // If cache is complete, return immediately without API calls
+    if (hasCompleteCache) {
+        console.log('✅ Using cached data for gene:', geneId);
+        loadEvent(100);
+        
+        // Extract data handling both formats
+        const extractCachedData = (entry: any, type: 'plant' | 'experiment' | 'cell') => {
+            if (!entry) return [];
+            // GeneData format (from HeatMap)
+            if (entry.data?.[type]) return entry.data[type];
+            // EFPViewerData format (from individual EFP views)
+            if (entry.viewData) {
+                if (type === 'cell') {
+                    // Cell data structure is different
+                    return entry.viewData.groups?.flatMap((g: any) =>
+                        g.tissues.map((t: any) => ({
+                            value: t.mean,
+                            sample: t.name,
+                            database: g.name
+                        }))
+                    ) ?? [];
+                } else {
+                    // Plant and experiment data
+                    return entry.viewData.flatMap((sample: any, i: number) =>
+                        sample.groups.flatMap((g: any) =>
+                            g.tissues.map((t: any) => ({
+                                value: t.mean,
+                                sample: t.name,
+                                database: entry.views?.[i]?.name ?? g.name
+                            }))
+                        )
+                    ) ?? [];
+                }
+            }
+            return [];
+        };
+        
+        const plantData = extractCachedData(cachedPlant, 'plant');
+        const experimentData = extractCachedData(cachedExperiment, 'experiment');
+        const cellData = extractCachedData(cachedCell, 'cell');
+        
+        console.log('📊 Extracted cache data:', { 
+            plant: plantData.length, 
+            experiment: experimentData.length, 
+            cell: cellData.length 
+        });
+        
+        return {
+            geneData: {
+                gene: geneId,
+                data: {
+                    plant: plantData,
+                    experiment: experimentData,
+                    cell: cellData,
+                },
+            },
+            viewMap: {
+                plant: 'plant',
+                experiment: 'tissue',
+                cell: 'Cell eFP',
+            },
+        };
+    }
+
+    // If cache is incomplete, load only the missing data
+    console.log('🔄 Loading missing data for gene:', geneId, {
+        needsPlant: !hasData(cachedPlant, 'plant'),
+        needsExperiment: !hasData(cachedExperiment, 'experiment'),
+        needsCell: !hasData(cachedCell, 'cell'),
+    });
+
+    const loadPromises: Promise<any>[] = [];
+    
+    // Only load plant data if not cached
+    if (!hasData(cachedPlant, 'plant')) {
+        console.log('📡 API call: Loading plant data');
+        loadPromises.push(EFPViewerLoader(geneticElement, plantEFPs, plantEFPViews, () => {}));
+    } else {
+        loadPromises.push(Promise.resolve(null));
+    }
+
+    if (!hasData(cachedExperiment, 'experiment')) {
+        console.log('📡 API call: Loading experiment data');
+        loadPromises.push(EFPViewerLoader(geneticElement, experimentEFPs, experimentEFPViews, () => {}));
+    } else {
+        loadPromises.push(Promise.resolve(null));
+    }
+
+    if (!hasData(cachedCell, 'cell')) {
+        console.log('📡 API call: Loading cell data');
+        loadPromises.push(cellEFPLoader(geneticElement, () => {}));
+    } else {
+        loadPromises.push(Promise.resolve(null));
+    }
+
+    const [plant, experiment, cell] = await Promise.all(loadPromises);
+
     loadEvent(100);
 
-    /**
-     * Transform the loaded data into the format expected by the heatmap component.
-     * Each data source has a different structure, so we normalize them here.
-     */
+    // NEW: Store the full EFPViewerData format in cache for EFP views to use
+    if (plant && geneticElement?.id) {
+        setGlobalEFPData(prev => ({
+            ...prev,
+            plant: { ...prev.plant, [geneticElement.id]: plant }
+        }));
+    }
+    if (experiment && geneticElement?.id) {
+        setGlobalEFPData(prev => ({
+            ...prev,
+            experiment: { ...prev.experiment, [geneticElement.id]: experiment }
+        }));
+    }
+    if (cell && geneticElement?.id) {
+        setGlobalEFPData(prev => ({
+            ...prev,
+            cell: { ...prev.cell, [geneticElement.id]: cell }
+        }));
+    }
+
+    // Return flattened format for HeatMap
     return {
         geneData: {
             gene: geneId,
             data: {
-                /** 
-                 * Plant data: Expression across different anatomical tissues.
-                 * Flattens nested group/tissue structure into individual data points.
-                 */
-                plant: plant?.viewData?.flatMap((sample, i) =>
-                    sample.groups.flatMap((g: EFPGroup) =>
+                plant:
+                    plant?.viewData?.flatMap((sample: any, i: number) =>
+                        sample.groups.flatMap((g: EFPGroup) =>
+                            g.tissues.map((t: EFPTissue) => ({
+                                value: t.mean,
+                                sample: t.name,
+                                database: plant.views?.[i]?.name ?? g.name
+                            }))
+                        )
+                    ) ?? cachedPlant?.data?.plant ?? [],
+
+                experiment:
+                    experiment?.viewData?.flatMap((sample: any, i: number) =>
+                        sample.groups.flatMap((g: EFPGroup) =>
+                            g.tissues.map((t: EFPTissue) => ({
+                                value: t.mean,
+                                sample: t.name,
+                                database: experiment.views?.[i]?.name ?? g.name
+                            }))
+                        )
+                    ) ?? cachedExperiment?.data?.experiment ?? [],
+
+                cell:
+                    cell?.viewData?.groups?.flatMap((g: EFPGroup) =>
                         g.tissues.map((t: EFPTissue) => ({
                             value: t.mean,
                             sample: t.name,
-                            database: plant.views?.[i]?.name ?? g.name
-                        }))
-                    )
-                ) ?? [],
-                
-                /** 
-                 * Experiment data: Expression under different experimental conditions.
-                 * Similar flattening process for consistency.
-                 */
-                experiment: experiment?.viewData?.flatMap((sample, i) =>
-                    sample.groups.flatMap((g: EFPGroup) =>
-                        g.tissues.map((t: EFPTissue) => ({
-                            value: t.mean,
-                            sample: t.name,
-                            database: experiment.views?.[i]?.name ?? g.name
-                        }))
-                    )
-                ) ?? [],
-                
-                /** 
-                 * Cell data: Expression in specific cell types.
-                 */
-                cell: cell?.viewData?.groups?.flatMap((g: EFPGroup) =>
-                    g.tissues.map((t: EFPTissue) => ({
-                        value: t.mean,
-                        sample: t.name,
-                        database: g.name
-                    }))
-                ) ?? [],
+                            database: g.name
+                            }))
+                    ) ?? cachedCell?.data?.cell ?? [],
             },
         },
-        /** 
-         * View mapping configuration for different data types.
-         * This helps other components understand what type of data they're working with.
-         */
-        viewMap: {
-            plant: 'plant',
-            experiment: 'tissue',
-            cell: 'Cell eFP',
-        },
+        viewMap: { plant: 'plant', experiment: 'tissue', cell: 'Cell eFP' }
     };
+
 };
