@@ -37,17 +37,20 @@ export const CellEFPView = () => {
   const { data, isLoading, isError, error } = useQuery<CellEFPViewerData>({
     queryKey: [`cell-efp-${geneticElement?.id}`],
     queryFn: async () => {
-      console.log(`[CellEFP] 🔄 Fetching data for gene: ${geneticElement?.id}`);
-      const result = await cellEFPLoader(geneticElement, setLoadAmount);
-      console.log(`[CellEFP] ✅ Data fetched for gene: ${geneticElement?.id}`, result);
-      return result;
+      console.log(`[CellEFP] 🔄 Fetching data for gene: ${geneticElement?.id}`)
+      const result = await cellEFPLoader(geneticElement, setLoadAmount)
+      console.log(
+        `[CellEFP] ✅ Data fetched for gene: ${geneticElement?.id}`,
+        result
+      )
+      return result
     },
     enabled: !!geneticElement,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   })
-    
+
   /** Initialize the URL state schema when component mounts */
   useEffect(() => {
     initializeState(CellEFPStateSchema)
@@ -151,7 +154,7 @@ export const CellEFPView = () => {
 /**
  * Loader function that fetches cell expression data for a specific genetic element.
  * This function is called by React Query and its results are automatically cached.
- * 
+ *
  * @param geneticElement - The gene for which to load expression data
  * @param loadEvent - Callback function to report loading progress
  * @returns Promise containing the formatted cell EFP data
@@ -161,7 +164,7 @@ export const cellEFPLoader = async (
   loadEvent: (loaded: number) => void
 ) => {
   if (!geneticElement) throw ViewDataError.UNSUPPORTED_GENE
-  
+
   let totalLoaded = 0
   const viewData = await CellEFPDataObject.getInitialData(
     geneticElement,

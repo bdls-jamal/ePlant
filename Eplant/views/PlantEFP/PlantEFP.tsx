@@ -33,26 +33,28 @@ export const PlantEFP = () => {
   const { data, isLoading, isError, error } = useQuery<EFPViewerData>({
     queryKey: [`plant-efp-${geneticElement?.id}`],
     queryFn: async () => {
-      console.log(`[PlantEFP] 🔄 Fetching data for gene: ${geneticElement?.id}`);
+      console.log(`[PlantEFP] 🔄 Fetching data for gene: ${geneticElement?.id}`)
       const result = await EFPViewerLoader(
         geneticElement,
         plantEFPs,
         plantEFPViews,
         setLoadAmount
-      );
-      console.log(`[PlantEFP] ✅ Data fetched for gene: ${geneticElement?.id}`, result);
-      return result;
+      )
+      console.log(
+        `[PlantEFP] ✅ Data fetched for gene: ${geneticElement?.id}`,
+        result
+      )
+      return result
     },
     enabled: !!geneticElement,
     staleTime: Infinity,
     refetchOnMount: false,
-    refetchOnWindowFocus: false
-  });
+    refetchOnWindowFocus: false,
+  })
 
   /** Initialize the URL state schema when component mounts */
   useEffect(() => {
     initializeState(EFPViewerStateSchema)
-  }, [initializeState])
   }, [initializeState])
 
   /** Update parent component's loading state when our loading state changes */

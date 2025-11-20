@@ -33,21 +33,26 @@ export const ExperimentEFP = () => {
   const { data, isLoading, isError, error } = useQuery<EFPViewerData>({
     queryKey: [`experiment-efp-${geneticElement?.id}`],
     queryFn: async () => {
-      console.log(`[ExperimentEFP] 🔄 Fetching data for gene: ${geneticElement?.id}`);
+      console.log(
+        `[ExperimentEFP] 🔄 Fetching data for gene: ${geneticElement?.id}`
+      )
       const result = await EFPViewerLoader(
         geneticElement,
         experimentEFPs,
         experimentEFPViews,
         setLoadAmount
-      );
-      console.log(`[ExperimentEFP] ✅ Data fetched for gene: ${geneticElement?.id}`, result);
-      return result;
+      )
+      console.log(
+        `[ExperimentEFP] ✅ Data fetched for gene: ${geneticElement?.id}`,
+        result
+      )
+      return result
     },
     enabled: !!geneticElement,
     staleTime: Infinity,
     refetchOnMount: false,
-    refetchOnWindowFocus: false
-  });
+    refetchOnWindowFocus: false,
+  })
 
   /** Initialize the URL state schema when component mounts */
   useEffect(() => {

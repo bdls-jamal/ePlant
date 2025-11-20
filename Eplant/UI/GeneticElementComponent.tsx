@@ -139,7 +139,7 @@ export default function GeneticElementComponent({
     />
   )
 
-  const geneId = geneticElement.id;
+  const geneId = geneticElement.id
 
   const transformDist =
     20 +
@@ -263,8 +263,12 @@ export default function GeneticElementComponent({
       >
         <MenuItem
           // Also remove from heatmap cache
-          onClick={() => {closeMenu(); onRemove?.();}}> 
-            Remove gene from list
+          onClick={() => {
+            closeMenu()
+            onRemove?.()
+          }}
+        >
+          Remove gene from list
         </MenuItem>
       </Menu>
     </Paper>

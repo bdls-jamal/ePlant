@@ -57,8 +57,8 @@ const router = createBrowserRouter([
       },
       {
         path: 'heatmap-view/:geneid?',
-        element: <HeatMapViewObject></HeatMapViewObject>
-      }
+        element: <HeatMapViewObject></HeatMapViewObject>,
+      },
     ],
     errorElement: <ErrorBoundary></ErrorBoundary>,
   },

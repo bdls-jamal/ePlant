@@ -1,12 +1,8 @@
-import { ViewMetadata } from '@eplant/View';
+import { ViewMetadata } from '@eplant/View'
 import YoutubeSearchedForRoundedIcon from '@mui/icons-material/YoutubeSearchedForRounded'
 
-import HeatMapIcon from './Heat_Icons';
-import {
-  HeatMapViewerData,
-  HeatMapViewerState,
-} from './types'
-
+import HeatMapIcon from './Heat_Icons'
+import { HeatMapViewerData, HeatMapViewerState } from './types'
 
 /** Define heatmap view configuration */
 const HeatMap: ViewMetadata<HeatMapViewerData, HeatMapViewerState> = {
@@ -19,7 +15,7 @@ const HeatMap: ViewMetadata<HeatMapViewerData, HeatMapViewerState> = {
     return <div></div>
   },
   actions: [
-    { 
+    {
       name: 'Reset Pan/Zoom',
       description: 'Reset the pan and zoom of the viewer',
       icon: <YoutubeSearchedForRoundedIcon />,
@@ -34,7 +30,7 @@ const HeatMap: ViewMetadata<HeatMapViewerData, HeatMapViewerState> = {
         },
       }),
     },
-  ]
+  ],
 }
 
-export default HeatMap;
+export default HeatMap
