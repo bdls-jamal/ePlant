@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import * as d3 from 'd3'
+import { useAtom } from 'jotai';
 import { createRoot } from 'react-dom/client'
 import { useOutletContext } from 'react-router-dom'
 
@@ -12,6 +13,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 
 import { cellEFPLoader } from '../CellEFP/CellEFP'
 import CellEFPIcon from '../CellEFP/icon'
+import { globalEFPDataAtom } from '../eFP/eFPAtoms';
 import { EFPGroup, EFPTissue } from '../eFP/types'
 import { EFPViewerLoader } from '../eFP/Viewer/EFPViewer'
 import { experimentEFPs, experimentEFPViews } from '../ExperimentEFP/efps'
@@ -49,6 +51,8 @@ export const HeatMapViewObject = () => {
 
   /** Reference to the SVG element where the D3.js visualization will be rendered */
   const svgRef = useRef<SVGSVGElement | null>(null)
+
+  const [globalEFPData, setGlobalEFPData] = useAtom(globalEFPDataAtom); /**TODO ADD COMMENT */
 
   /**
    * React Query hook to fetch heatmap data for the current genetic element.
@@ -129,74 +133,66 @@ export const HeatMapViewObject = () => {
     ],
   })
 
-  const [plantQuery, experimentQuery, cellQuery] = queries
 
   /** Initialize the URL state schema when component mounts */
   useEffect(() => initializeState(HeatMapViewStateSchema), [initializeState])
 
-  /** Update parent component's loading state when any query is loading */
-  useEffect(() => {
-    const anyLoading = queries.some((q) => q.isLoading)
-    setIsLoading(anyLoading)
-  }, [queries, setIsLoading])
+
+  useEffect(() => setIsLoading(isLoading), [isLoading, setIsLoading]); /**TODO ADD COMMENT */
+
 
   /**
    * Processes the cached query data to create a unified list of genes with their data.
    * Combines data from plant, experiment, and cell categories for the current gene.
    */
   const loadedGenes = useMemo<GeneData[]>(() => {
-    if (!geneticElement) return []
+      const ids = Array.from(new Set([
+          ...Object.keys(globalEFPData.plant),
+          ...Object.keys(globalEFPData.experiment),
+          ...Object.keys(globalEFPData.cell),
+      ]));
 
-    const geneId = geneticElement.id
-
-    /** Transform the current gene's data into structured format */
-    const plantData =
-      plantQuery.data?.viewData?.flatMap((sample, i) =>
-        sample.groups.flatMap((g: EFPGroup) =>
-          g.tissues.map((t: EFPTissue) => ({
-            value: t.mean,
-            sample: t.name,
-            database: plantQuery.data.views?.[i]?.name ?? g.name,
+      return ids
+          .map(id => ({
+              gene: id,
+              data: {
+                  plant: globalEFPData.plant[id]?.data.plant ?? [],
+                  experiment: globalEFPData.experiment[id]?.data.experiment ?? [],
+                  cell: globalEFPData.cell[id]?.data.cell ?? [],
+              },
           }))
-        )
-      ) ?? []
+          .filter(g =>
+              g.data.plant.length || g.data.experiment.length || g.data.cell.length
+          );
+  }, [globalEFPData]);
 
-    const experimentData =
-      experimentQuery.data?.viewData?.flatMap((sample, i) =>
-        sample.groups.flatMap((g: EFPGroup) =>
-          g.tissues.map((t: EFPTissue) => ({
-            value: t.mean,
-            sample: t.name,
-            database: experimentQuery.data.views?.[i]?.name ?? g.name,
-          }))
-        )
-      ) ?? []
 
-    const cellData =
-      cellQuery.data?.viewData?.groups?.flatMap((g: EFPGroup) =>
-        g.tissues.map((t: EFPTissue) => ({
-          value: t.mean,
-          sample: t.name,
-          database: g.name,
-        }))
-      ) ?? []
+  useEffect(() => {
+    if (!geneticElement || !data?.geneData) return;
+    const id = geneticElement.id;
+    const incoming = data.geneData.data;
 
-    /** Return the gene data if at least one category has data */
-    if (plantData.length || experimentData.length || cellData.length) {
-      return [
-        {
-          gene: geneId,
-          data: {
-            plant: plantData,
-            experiment: experimentData,
-            cell: cellData,
-          },
-        },
-      ]
-    }
+    setGlobalEFPData(prev => {
+        const prevPlant = prev.plant[id]?.data.plant ?? [];
+        const prevExp = prev.experiment[id]?.data.experiment ?? [];
+        const prevCell = prev.cell[id]?.data.cell ?? [];
 
-    return []
-  }, [geneticElement, plantQuery.data, experimentQuery.data, cellQuery.data])
+        const merged = {
+            plant: incoming.plant?.length ? incoming.plant : prevPlant,
+            experiment: incoming.experiment?.length ? incoming.experiment : prevExp,
+            cell: incoming.cell?.length ? incoming.cell : prevCell,
+        };
+
+        const nextEntry = { gene: id, data: merged };
+
+        return {
+            plant: { ...prev.plant, [id]: nextEntry },
+            experiment: { ...prev.experiment, [id]: nextEntry },
+            cell: { ...prev.cell, [id]: nextEntry },
+        };
+    });
+  }, [geneticElement, data, setGlobalEFPData]);
+
 
   /** Visual layout constants that define the heatmap's appearance */
   const ICON_HEIGHT = 24 /** Height of category icons in pixels */
