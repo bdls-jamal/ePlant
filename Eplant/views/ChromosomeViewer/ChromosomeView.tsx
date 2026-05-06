@@ -4,7 +4,9 @@ import { Space } from 'react-zoomable-ui'
 
 import GeneticElement from '@eplant/GeneticElement'
 import { useURLState } from '@eplant/state/URLStateProvider'
+import LoadingPage from '@eplant/UI/Layout/ViewContainer/LoadingPage'
 import { ViewContext } from '@eplant/UI/Layout/ViewContainer/types'
+import { ViewDataError } from '@eplant/View'
 import { Box, CircularProgress, Snackbar, SnackbarContent } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 
@@ -18,22 +20,30 @@ import {
   Transform,
 } from './types'
 import ZoomControls from './ZoomControls'
+import { ChromosomeViewerObject } from '.'
 
 export const ChromosomeView = () => {
-  const { geneticElement, setIsLoading, setLoadAmount } =
-    useOutletContext<ViewContext>()
+  const { geneticElement } = useOutletContext<ViewContext>()
   const { state, setState, initializeState } =
     useURLState<ChromosomeViewerState>()
+  const [loadAmount, setLoadAmount] = useState(0)
 
   const spaceRef = useRef<Space | null>(null)
   const [messageOpen, setMessageOpen] = useState(true)
   const handleClose = () => {
     setMessageOpen(false)
   }
-  const { data, isLoading, isError, error } = useQuery<ChromosomeViewerData>({
+  const { data, isLoading, isError, error } = useQuery<
+    ChromosomeViewerData,
+    ViewDataError
+  >({
     queryKey: [`chromosome`],
     queryFn: async () => {
-      return ChromosomeViewLoader(geneticElement, setLoadAmount)
+      try {
+        return ChromosomeViewLoader(geneticElement, setLoadAmount)
+      } catch {
+        throw ViewDataError.FAILED_TO_LOAD
+      }
     },
   })
 
@@ -42,11 +52,26 @@ export const ChromosomeView = () => {
     initializeState(ChromosomeViewerStateScheme)
   }, [])
 
-  useEffect(() => {
-    setIsLoading(isLoading)
-  }, [isLoading, setIsLoading])
+  if (!geneticElement) {
+    return (
+      <LoadingPage
+        loadingAmount={loadAmount}
+        gene={geneticElement}
+        view={ChromosomeViewerObject}
+        error={ViewDataError.UNSUPPORTED_GENE}
+      ></LoadingPage>
+    )
+  } else if ((isLoading && loadAmount < 100) || isError) {
+    return (
+      <LoadingPage
+        loadingAmount={loadAmount}
+        gene={geneticElement}
+        view={ChromosomeViewerObject}
+        error={error}
+      ></LoadingPage>
+    )
+  } else if (!data || !state) return <></>
 
-  if (isLoading || isError || !data || !state) return <></>
   return (
     <Box>
       {/* ZOOM CONTROLS */}
@@ -120,7 +145,12 @@ const ChromosomeViewLoader = async (
   }/cgi-bin/chromosomeinfo.cgi?species=${species}`
 
   const chromosomeViewData: ChromosomeItem[] = await fetch(url)
-    .then((response) => response.json())
+    .then((response) => {
+      if (!response.ok) {
+        throw ViewDataError.FAILED_TO_LOAD
+      }
+      return response.json()
+    })
     .then((responseObj: ChromosomesResponseObj) => responseObj['chromosomes'])
   loadEvent(100)
   return {

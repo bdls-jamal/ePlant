@@ -1,8 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 
 import { useURLState } from '@eplant/state/URLStateProvider'
+import LoadingPage from '@eplant/UI/Layout/ViewContainer/LoadingPage'
 import { ViewContext } from '@eplant/UI/Layout/ViewContainer/types'
+import { ViewDataError } from '@eplant/View'
 import { useQuery } from '@tanstack/react-query'
 
 import { EFPViewer, EFPViewerLoader } from '../eFP/Viewer/EFPViewer'
@@ -13,6 +15,7 @@ import {
 } from '../eFP/Viewer/types'
 
 import { experimentEFPs, experimentEFPViews } from './efps'
+import ExperimentEFP from '.'
 
 /**
  * ExperimentEFP component displays gene expression data across different experimental conditions.

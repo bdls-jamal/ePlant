@@ -1,10 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { useOutletContext } from 'react-router-dom'
 
 import GeneticElement from '@eplant/GeneticElement'
 import { useURLState } from '@eplant/state/URLStateProvider'
+import LoadingPage from '@eplant/UI/Layout/ViewContainer/LoadingPage'
 import { ViewContext } from '@eplant/UI/Layout/ViewContainer/types'
+import { ViewDataError } from '@eplant/View'
 import { Tab, Tabs, Typography, useTheme } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 
@@ -18,28 +20,56 @@ import {
   PublicationViewerData,
   TabValues,
 } from './types'
+import PublicationView from '.'
 
-export const PublicationsView = () => {
-  const { geneticElement, setIsLoading, setLoadAmount } =
-    useOutletContext<ViewContext>()
+export const PublicationsViewer = () => {
+  const { geneticElement } = useOutletContext<ViewContext>()
   const { state, setState, initializeState } =
     useURLState<PublicationsViewerState>()
-  const { data, isLoading, isError, error } = useQuery<PublicationViewerData>({
+  const [loadAmount, setLoadAmount] = useState(0)
+  const { data, isLoading, isError, error } = useQuery<
+    PublicationViewerData,
+    ViewDataError
+  >({
     queryKey: [`publications-${geneticElement?.id}`],
     queryFn: async () => {
       return publicationsLoader(geneticElement, setLoadAmount)
     },
+    retry: false,
   })
   const theme = useTheme()
   useEffect(() => {
     initializeState(PublicationsViewStateSchema)
   }, [])
+  if (!geneticElement) {
+    return (
+      <LoadingPage
+        loadingAmount={loadAmount}
+        gene={geneticElement}
+        view={PublicationView}
+        error={ViewDataError.UNSUPPORTED_GENE}
+      ></LoadingPage>
+    )
+  } else if (isError) {
+    return (
+      <LoadingPage
+        loadingAmount={loadAmount}
+        gene={geneticElement}
+        view={PublicationView}
+        error={error}
+      ></LoadingPage>
+    )
+  } else if (isLoading && loadAmount < 100) {
+    return (
+      <LoadingPage
+        loadingAmount={loadAmount}
+        gene={geneticElement}
+        view={PublicationView}
+        error={null}
+      ></LoadingPage>
+    )
+  } else if (!data || !state) return <></>
 
-  useEffect(() => {
-    setIsLoading(isLoading)
-  }, [isLoading, setIsLoading])
-
-  if (isLoading || isError || !data || !state) return <></>
   return (
     <div>
       <Typography variant='h6'>

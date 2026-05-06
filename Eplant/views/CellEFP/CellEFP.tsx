@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 
 import GeneticElement from '@eplant/GeneticElement'
 import { useURLState } from '@eplant/state/URLStateProvider'
+import LoadingPage from '@eplant/UI/Layout/ViewContainer/LoadingPage'
 import { ViewContext } from '@eplant/UI/Layout/ViewContainer/types'
 import PanZoom from '@eplant/util/PanZoom'
 import { ViewDataError } from '@eplant/View'
@@ -17,6 +18,7 @@ import {
   CellEFPViewerData,
   CellEFPViewerState,
 } from './types'
+import CellEFP from '.'
 
 /**
  * CellEFPView component displays gene expression data across different cell types.
@@ -25,8 +27,7 @@ import {
  * like the HeatMap view without refetching.
  */
 export const CellEFPView = () => {
-  const { geneticElement, setIsLoading, setLoadAmount } =
-    useOutletContext<ViewContext>()
+  const { geneticElement } = useOutletContext<ViewContext>()
   const { state, setState, initializeState } = useURLState<CellEFPViewerState>()
 
   /**

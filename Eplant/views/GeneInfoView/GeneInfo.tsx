@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import _ from 'lodash'
 import { useOutletContext } from 'react-router-dom'
-import { z } from 'zod'
 
 import { useConfig } from '@eplant/config'
 import GeneticElement from '@eplant/GeneticElement'
 import { useSetActiveViewId } from '@eplant/state'
+import LoadingPage from '@eplant/UI/Layout/ViewContainer/LoadingPage'
 import { ViewContext } from '@eplant/UI/Layout/ViewContainer/types'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { Alert, Box, IconButton, Snackbar } from '@mui/material'
@@ -13,7 +13,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useQuery } from '@tanstack/react-query'
 
-import { ViewMetadata } from '../../View'
+import { ViewDataError, ViewMetadata } from '../../View'
 
 import { CodeBody } from './CodeBody'
 import { GeneModel } from './GeneModel'
@@ -22,26 +22,56 @@ import { geneInfoLoader } from './loader'
 import { SecondaryText } from './SecondaryText'
 import { GeneInfoViewData } from './types'
 import { ViewButton } from './ViewButton'
+import GeneInfoViewMetadata from '.'
 
 export const GeneInfoView = () => {
   const [snackBarOpen, setSnackBarOpen] = useState(false)
-  const { geneticElement, setIsLoading, setLoadAmount } =
-    useOutletContext<ViewContext>()
-  if (geneticElement == null) {
-    throw new TypeError('Genetic element must be provided for Gene Info View')
-  }
-  const { data, isLoading, isError, error } = useQuery<GeneInfoViewData>({
+  const { geneticElement } = useOutletContext<ViewContext>()
+  const [loadAmount, setLoadAmount] = useState(0)
+  const { data, isLoading, isError, error } = useQuery<
+    GeneInfoViewData,
+    ViewDataError
+  >({
     queryKey: [`geneInfo-${geneticElement?.id}`],
     queryFn: async () => {
       return geneInfoLoader(geneticElement, setLoadAmount)
     },
+    retry: false,
   })
   const copyToClipboard = (text: string) => {
     setSnackBarOpen(true)
     navigator.clipboard.writeText(text)
   }
 
-  if (isLoading || isError || !data) return <></>
+  if (!geneticElement) {
+    return (
+      <LoadingPage
+        loadingAmount={loadAmount}
+        gene={geneticElement}
+        view={GeneInfoViewMetadata}
+        error={ViewDataError.UNSUPPORTED_GENE}
+      ></LoadingPage>
+    )
+  } else if (isError) {
+    return (
+      <LoadingPage
+        loadingAmount={loadAmount}
+        gene={geneticElement}
+        view={GeneInfoViewMetadata}
+        error={error}
+      ></LoadingPage>
+    )
+  } else if (isLoading && loadAmount < 100) {
+    return (
+      <LoadingPage
+        loadingAmount={loadAmount}
+        gene={geneticElement}
+        view={GeneInfoViewMetadata}
+        error={null}
+      ></LoadingPage>
+    )
+  } else if (!data) return <></>
+
   return (
     <Stack direction='row' gap={'20px'}>
       <ViewSwitcher geneticElement={geneticElement} />
@@ -59,9 +89,9 @@ export const GeneInfoView = () => {
       >
         <div>
           <Typography variant='h5' sx={{ fontWeight: 500 }}>
-            {geneticElement.id}
+            {geneticElement?.id}
           </Typography>
-          <SecondaryText>{geneticElement.aliases.join(', ')}</SecondaryText>
+          <SecondaryText>{geneticElement?.aliases.join(', ')}</SecondaryText>
         </div>
         <div>
           <Typography variant='body1'>Full name</Typography>
@@ -98,7 +128,7 @@ export const GeneInfoView = () => {
           <div>
             <div>
               <SecondaryText variant='caption' whiteSpace={'nowrap'}>
-                {'> ' + geneticElement.id}
+                {'> ' + geneticElement?.id}
               </SecondaryText>
             </div>
             <div>
@@ -132,7 +162,7 @@ export const GeneInfoView = () => {
             <Typography variant='body1'>Protein sequence</Typography>
             <div>
               <SecondaryText variant='caption' whiteSpace={'nowrap'}>
-                {'> ' + geneticElement.id}
+                {'> ' + geneticElement?.id}
               </SecondaryText>
             </div>
             <div>
@@ -157,7 +187,11 @@ export const GeneInfoView = () => {
     </Stack>
   )
 }
-function ViewSwitcher({ geneticElement }: { geneticElement: GeneticElement }) {
+function ViewSwitcher({
+  geneticElement,
+}: {
+  geneticElement: GeneticElement | null
+}) {
   const setActiveViewId = useSetActiveViewId()
   const { userViews } = useConfig()
   return (
