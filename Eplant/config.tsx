@@ -8,6 +8,7 @@ import GeneInfoViewMetadata from './views/GeneInfoView'
 import GetStartedView from './views/GetStartedView'
 import InteractionsViewer from './views/InteractionsViewer'
 import NavigatorView from './views/NavigatorView'
+import HeatMap from './views/HeatMapViewer'
 import PlantEFP from './views/PlantEFP'
 import PublicationViewer from './views/PublicationViewer'
 // import WorldEFP from './views/WorldEFP'
@@ -38,6 +39,7 @@ const userViewMetadata = [
   ChromosomeViewerObject,
   NavigatorView,
   InteractionsViewer,
+  HeatMap,
 ]
 
 // List of views that are used to lookup a view by id

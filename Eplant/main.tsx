@@ -16,6 +16,9 @@ import { InteractionsViewObject } from './views/InteractionsViewer/InteractionsV
 import { NavigatorViewObject } from './views/NavigatorView/NavigatorView'
 import { PlantEFPView } from './views/PlantEFP/PlantEFP'
 import { PublicationsViewer } from './views/PublicationViewer/PublicationsView'
+import { HeatMapViewObject } from './views/HeatMapViewer/HeatMapView'
+import { PlantEFP } from './views/PlantEFP/PlantEFP'
+import { PublicationsView } from './views/PublicationViewer/PublicationsView'
 import { Config, defaultConfig } from './config'
 import Eplant from './Eplant'
 
@@ -71,6 +74,50 @@ const router = createBrowserRouter(
   ],
   { basename: import.meta.env.BASE_URL ?? '/' }
 )
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Eplant />,
+    children: [
+      {
+        element: <Navigate to={'gene-info/'} replace={true}></Navigate>,
+      },
+      {
+        path: 'cell-efp/:geneid?',
+        element: <CellEFPView></CellEFPView>,
+      },
+      {
+        path: 'publications/:geneid?',
+        element: <PublicationsView></PublicationsView>,
+      },
+      {
+        path: 'chromosome/:geneid?',
+        element: <ChromosomeView></ChromosomeView>,
+      },
+      {
+        path: 'plant-efp/:geneid?',
+        element: <PlantEFP></PlantEFP>,
+      },
+      {
+        path: 'tissue/:geneid?',
+        element: <ExperimentEFP></ExperimentEFP>,
+      },
+      {
+        path: 'gene-info/:geneid?',
+        element: <GeneInfoView></GeneInfoView>,
+      },
+      {
+        path: 'get-started/:geneid?',
+        element: <GetStartedView></GetStartedView>,
+      },
+      {
+        path: 'heatmap-view/:geneid?',
+        element: <HeatMapViewObject></HeatMapViewObject>,
+      },
+    ],
+    errorElement: <ErrorBoundary></ErrorBoundary>,
+  },
+])
 
 export const queryClient = new QueryClient()
 

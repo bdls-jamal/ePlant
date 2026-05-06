@@ -1,4 +1,5 @@
 import { MouseEvent, useEffect, useId, useRef, useState } from 'react'
+import { useAtom } from 'jotai'
 
 import GeneticElement from '@eplant/GeneticElement'
 import { DragIndicator } from '@mui/icons-material'
@@ -138,6 +139,8 @@ export default function GeneticElementComponent({
     />
   )
 
+  const geneId = geneticElement.id
+
   const transformDist =
     20 +
     (textGroupRef.current?.clientWidth ?? 1000) -
@@ -258,7 +261,13 @@ export default function GeneticElementComponent({
           'aria-labelledby': 'basic-button',
         }}
       >
-        <MenuItem onClick={() => (closeMenu(), onRemove?.())}>
+        <MenuItem
+          // Also remove from heatmap cache
+          onClick={() => {
+            closeMenu()
+            onRemove?.()
+          }}
+        >
           Remove gene from list
         </MenuItem>
       </Menu>
