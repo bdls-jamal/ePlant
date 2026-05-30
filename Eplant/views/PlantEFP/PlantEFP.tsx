@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
 
 import { useURLState } from '@eplant/state/URLStateProvider'
-import LoadingPage from '@eplant/UI/Layout/ViewContainer/LoadingPage'
 import { ViewContext } from '@eplant/UI/Layout/ViewContainer/types'
-import { ViewDataError } from '@eplant/View'
 import { useQuery } from '@tanstack/react-query'
 
 import { EFPViewer, EFPViewerLoader } from '../eFP/Viewer/EFPViewer'
@@ -15,7 +13,6 @@ import {
 } from '../eFP/Viewer/types'
 
 import { plantEFPs, plantEFPViews } from './efps'
-import PlantEFP from '.'
 
 /**
  * PlantEFP component displays gene expression data across different plant tissues.
@@ -27,7 +24,6 @@ export const PlantEFP = () => {
   const { geneticElement, setIsLoading, setLoadAmount } =
     useOutletContext<ViewContext>()
   const { state, setState, initializeState } = useURLState<EFPViewerState>()
-  const [loadAmount, setLoadAmount] = useState(0)
 
   /**
    * Fetch plant expression data for the current genetic element.
@@ -80,4 +76,3 @@ export const PlantEFP = () => {
     />
   )
 }
-export { PlantEFP }

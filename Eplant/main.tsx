@@ -9,15 +9,13 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import ErrorBoundary from './util/ErrorBoundary'
 import { CellEFPView } from './views/CellEFP/CellEFP'
 import { ChromosomeView } from './views/ChromosomeViewer/ChromosomeView'
-import { ExperimentEFPView } from './views/ExperimentEFP/ExperimentEFP'
+import { ExperimentEFP } from './views/ExperimentEFP/ExperimentEFP'
 import { GeneInfoView } from './views/GeneInfoView/GeneInfo'
 import GetStartedView from './views/GetStartedView/GetStartedView'
 import { HeatMapViewObject } from './views/HeatMapViewer/HeatMapView'
-import { PlantEFP } from './views/PlantEFP/PlantEFP'
-import { PublicationsView } from './views/PublicationViewer/PublicationsView'
 import { InteractionsViewObject } from './views/InteractionsViewer/InteractionsView'
 import { NavigatorViewObject } from './views/NavigatorView/NavigatorView'
-import { PlantEFPView } from './views/PlantEFP/PlantEFP'
+import { PlantEFP } from './views/PlantEFP/PlantEFP'
 import { PublicationsViewer } from './views/PublicationViewer/PublicationsView'
 import { Config, defaultConfig } from './config'
 import Eplant from './Eplant'
@@ -37,7 +35,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'publications/:geneid?',
-        element: <PublicationsView></PublicationsView>,
+        element: <PublicationsViewer></PublicationsViewer>,
       },
       {
         path: 'chromosome/:geneid?',
@@ -48,7 +46,7 @@ const router = createBrowserRouter([
         element: <PlantEFP></PlantEFP>,
       },
       {
-        path: 'tissue/:geneid?',
+        path: 'experiment-efp/:geneid?',
         element: <ExperimentEFP></ExperimentEFP>,
       },
       {
@@ -63,61 +61,18 @@ const router = createBrowserRouter([
         path: 'heatmap-view/:geneid?',
         element: <HeatMapViewObject></HeatMapViewObject>,
       },
+      {
+        path: 'navigator-view/:geneid?',
+        element: <NavigatorViewObject></NavigatorViewObject>,
+      },
+      {
+        path: 'interactions-view/:geneid?',
+        element: <InteractionsViewObject></InteractionsViewObject>,
+      },
     ],
     errorElement: <ErrorBoundary></ErrorBoundary>,
   },
 ])
-const router = createBrowserRouter(
-  [
-    {
-      path: '/',
-      element: <Eplant />,
-      children: [
-        {
-          element: <Navigate to={'gene-info/'} replace={true}></Navigate>,
-        },
-        {
-          path: 'cell-efp/:geneid?',
-          element: <CellEFPView></CellEFPView>,
-        },
-        {
-          path: 'publications/:geneid?',
-          element: <PublicationsViewer></PublicationsViewer>,
-        },
-        {
-          path: 'chromosome/:geneid?',
-          element: <ChromosomeView></ChromosomeView>,
-        },
-        {
-          path: 'plant-efp/:geneid?',
-          element: <PlantEFPView></PlantEFPView>,
-        },
-        {
-          path: 'experiment-efp/:geneid?',
-          element: <ExperimentEFPView></ExperimentEFPView>,
-        },
-        {
-          path: 'gene-info/:geneid?',
-          element: <GeneInfoView></GeneInfoView>,
-        },
-        {
-          path: 'get-started/:geneid?',
-          element: <GetStartedView></GetStartedView>,
-        },
-        {
-          path: 'navigator-view/:geneid?',
-          element: <NavigatorViewObject></NavigatorViewObject>,
-        },
-        {
-          path: 'interactions-view/:geneid?',
-          element: <InteractionsViewObject></InteractionsViewObject>,
-        },
-      ],
-      errorElement: <ErrorBoundary></ErrorBoundary>,
-    },
-  ],
-  { basename: import.meta.env.BASE_URL ?? '/' }
-)
 
 export const queryClient = new QueryClient()
 
