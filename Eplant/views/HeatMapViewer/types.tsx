@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { EFPGroup } from '../eFP/types'
+
 /**
  * Mapping of view types to their corresponding display names.
  * Used for switching between different visualization modes.
@@ -18,6 +20,8 @@ type DataPoint = {
   value: number
   sample: string
   database: string
+  group: EFPGroup
+  control: number
 }
 
 /**

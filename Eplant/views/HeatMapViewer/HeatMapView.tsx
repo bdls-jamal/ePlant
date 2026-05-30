@@ -14,6 +14,7 @@ import { QueryClient, useQuery, useQueryClient } from '@tanstack/react-query'
 import { cellEFPLoader } from '../CellEFP/CellEFP'
 import CellEFPIcon from '../CellEFP/icon'
 import { globalEFPDataAtom } from '../eFP/eFPAtoms'
+import { getColor } from '../eFP/svg'
 import { EFPGroup, EFPTissue } from '../eFP/types'
 import { EFPViewerLoader } from '../eFP/Viewer/EFPViewer'
 import { experimentEFPs, experimentEFPViews } from '../ExperimentEFP/efps'
@@ -101,33 +102,8 @@ const validGroups = ['plant', 'experiment', 'cell'] as const
 type GroupKey = (typeof validGroups)[number]
 
 // ---------------------------------------------------------------------------
-// Helpers — defined at module level so they are stable references and never
-// recreated on each render.
+// Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Creates a color interpolation between two colors based on a value within a range.
- * Uses D3's linear scale to map expression values to colors.
- *
- * @param value - The expression value to map to a color
- * @param max - The maximum expression value in the dataset
- * @param minColor - The color representing the minimum expression value
- * @param maxColor - The color representing the maximum expression value
- */
-function interpolateColor(
-  value: number,
-  max: number,
-  minColor: string,
-  maxColor: string
-): string {
-  /** Handle edge case where maximum value is zero to avoid division by zero */
-  if (max === 0) return minColor
-  return d3
-    .scaleLinear<string>()
-    .domain([0, max])
-    .range([minColor, maxColor])
-    .clamp(true)(value)
-}
 
 /**
  * Calculates the actual rendered width for a data group, including gaps between databases.
@@ -496,8 +472,8 @@ export const HeatMapViewObject = () => {
               .attr(
                 'fill',
                 point
-                  ? interpolateColor(point.value, dbMaxValue, '#ffff00', '#ff0000')
-                  : '#ccc' /** Grey placeholder for missing data */
+                  ? getColor(point.value, point.group, point.control, theme, 'absolute')
+                  : '#ccc'
               )
               .style('cursor', point ? 'pointer' : 'default')
               /** Show detailed information on hover for data points */
@@ -656,6 +632,8 @@ export const HeatMapViewerLoader = async (
                 value: t.mean,
                 sample: t.name,
                 database: plant.views?.[i]?.name ?? g.name,
+                group: g,
+                control: sample.control ?? 1,
               }))
             )
           ) ?? [],
@@ -671,6 +649,8 @@ export const HeatMapViewerLoader = async (
                 value: t.mean,
                 sample: t.name,
                 database: experiment.views?.[i]?.name ?? g.name,
+                group: g,
+                control: sample.control ?? 1,
               }))
             )
           ) ?? [],
@@ -680,11 +660,13 @@ export const HeatMapViewerLoader = async (
          */
         cell:
           cell?.viewData?.groups?.flatMap((g: EFPGroup) =>
-            g.tissues.map((t: EFPTissue) => ({
-              value: t.mean,
-              sample: t.name,
-              database: g.name,
-            }))
+          g.tissues.map((t: EFPTissue) => ({
+            value: t.mean,
+            sample: t.name,
+            database: g.name,
+            group: g,
+            control: cell?.viewData?.control ?? 1,
+          }))
           ) ?? [],
       },
     },
