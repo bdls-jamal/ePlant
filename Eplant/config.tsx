@@ -6,6 +6,7 @@ import ExperimentEFP from './views/ExperimentEFP'
 import FallbackView from './views/FallbackView'
 import GeneInfoViewMetadata from './views/GeneInfoView'
 import GetStartedView from './views/GetStartedView'
+import HeatMap from './views/HeatMapViewer'
 import InteractionsViewer from './views/InteractionsViewer'
 import NavigatorView from './views/NavigatorView'
 import PlantEFP from './views/PlantEFP'
@@ -36,6 +37,7 @@ const userViewMetadata = [
   ExperimentEFP,
   // WorldEFP,
   ChromosomeViewerObject,
+  HeatMap,
   NavigatorView,
   InteractionsViewer,
 ]
