@@ -1,15 +1,23 @@
-import React, { useEffect, useMemo, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import * as d3 from 'd3'
 import { useAtom } from 'jotai'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 
 import GeneticElement from '@eplant/GeneticElement'
+import arabidopsis from '@eplant/Species/arabidopsis'
+import {
+  useGeneticElements,
+  useSetActiveGeneId,
+  useSetActiveViewId,
+} from '@eplant/state'
 import { useURLState } from '@eplant/state/URLStateProvider'
 import { ViewContext } from '@eplant/UI/Layout/ViewContainer/types'
 import { ViewDataError } from '@eplant/View'
 import { Box, CircularProgress, Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { QueryClient, useQuery, useQueryClient } from '@tanstack/react-query'
+import { getZodDefaults, flattenObject } from '@eplant/state/stateUtils'
+import { EFPViewerStateSchema } from '../eFP/Viewer/types'
 
 import { cellEFPLoader } from '../CellEFP/CellEFP'
 import CellEFPIcon from '../CellEFP/icon'
@@ -33,15 +41,15 @@ import {
 // Layout constants — defined at module level so they are stable references
 // and never recreated on each render.
 // ---------------------------------------------------------------------------
-const ICON_HEIGHT = 24   /** Height of category icons in pixels */
-const ICON_SPACING = 20  /** Space above icons from top of SVG */
-const TOP_MARGIN = 80    /** Space above the data rows */
-const LEFT_MARGIN = 100  /** Space to the left for gene labels */
-const ROW_SPACING = 10   /** Vertical space between gene rows */
+const ICON_HEIGHT = 24 /** Height of category icons in pixels */
+const ICON_SPACING = 20 /** Space above icons from top of SVG */
+const TOP_MARGIN = 80 /** Space above the data rows */
+const LEFT_MARGIN = 100 /** Space to the left for gene labels */
+const ROW_SPACING = 10 /** Vertical space between gene rows */
 const MIN_CELL_WIDTH = 1.3 /** Minimum width of each expression data cell */
-const GROUP_GAP = 10     /** Horizontal space between data categories */
-const ROW_HEIGHT = 25    /** Height of each gene row */
-const DATABASE_GAP = 3   /** Space between different databases within a category */
+const GROUP_GAP = 10 /** Horizontal space between data categories */
+const ROW_HEIGHT = 25 /** Height of each gene row */
+const DATABASE_GAP = 3 /** Space between different databases within a category */
 
 /**
  * Defines the maximum number of samples expected for each experimental database.
@@ -191,13 +199,16 @@ const IconOverlay: React.FC<IconOverlayProps> = ({ groupPositions }) => (
  * - Experimental conditions
  * - Cell types
  *
- * The heatmap shows expression values as colored cells, with yellow representing
- * low expression and red representing high expression levels.
+ * The heatmap shows expression values as colored cells using the same color
+ * scheme as the individual EFP views via the shared getColor function.
  *
  * Data sharing strategy: HeatMapViewerLoader uses queryClient.fetchQuery with
  * the same query keys as the individual EFP views (plant-efp-*, experiment-efp-*,
  * cell-efp-*). This means React Query will serve cached data when those views
  * have already loaded it, and only fetch from the network when necessary.
+ *
+ * Navigation: Clicking a cell navigates to the corresponding EFP view for that
+ * gene and database, landing on the correct sub-view via URL query params.
  */
 export const HeatMapViewObject = () => {
   /** Extract context data from the parent component including the current gene and loading functions */
@@ -213,7 +224,14 @@ export const HeatMapViewObject = () => {
   /** Reference to the SVG element where the D3.js visualization will be rendered */
   const svgRef = useRef<SVGSVGElement | null>(null)
 
+  /** Shared atom storing EFP data across all views to avoid redundant fetches */
   const [globalEFPData, setGlobalEFPData] = useAtom(globalEFPDataAtom)
+
+  /** Navigation hooks for cell click — navigate to the correct EFP view and sub-view */
+  const navigate = useNavigate()
+  const setActiveViewId = useSetActiveViewId()
+  const setActiveGeneId = useSetActiveGeneId()
+  const [genes, setGenes] = useGeneticElements()
 
   /**
    * Access the shared React Query client so HeatMapViewerLoader can call
@@ -331,6 +349,66 @@ export const HeatMapViewObject = () => {
   }, [loadedGenes])
 
   /**
+   * Navigates to the appropriate EFP view when a heatmap cell is clicked.
+   * For plant and experiment groups, uses the database name to look up the
+   * correct sub-view ID and passes it as a URL query param so EFPViewer
+   * lands on the right page via its activeView URL state.
+   * For cell, navigates directly to cell-efp with no sub-view param needed.
+   *
+   * Wrapped in useCallback so the D3 effect dependency stays stable and
+   * does not trigger unnecessary redraws when unrelated state changes.
+   *
+   * @param group - The data category (plant, experiment, or cell)
+   * @param database - The database name stored on the data point
+   * @param geneId - The gene ID of the clicked row
+   */
+  const handleCellClick = useCallback(
+    async (group: GroupKey, database: string, geneId: string) => {
+      let foundGene = genes.find((g) => g.id === geneId) ?? null
+      if (!foundGene) {
+        foundGene = await arabidopsis.api.searchGene(geneId)
+        if (foundGene && !genes.find((g) => g.id === foundGene!.id)) {
+          setGenes([...genes, foundGene])
+        }
+      }
+      if (!foundGene) return
+
+      const viewId =
+        group === 'plant'
+          ? 'plant-efp'
+          : group === 'experiment'
+            ? 'experiment-efp'
+            : 'cell-efp'
+
+      const views =
+        group === 'plant'
+          ? plantEFPViews
+          : group === 'experiment'
+            ? experimentEFPViews
+            : null
+      const activeViewId = views?.find((v) => v.name === database)?.id ?? ''
+
+      setActiveGeneId(foundGene.id)
+      setActiveViewId(viewId)
+
+      if (activeViewId) {
+        // Build a COMPLETE param set (defaults + activeView override) so
+        // safeParse doesn't fail on the required `transform` field and
+        // discard everything, including activeView.
+        const fullState = {
+          ...getZodDefaults(EFPViewerStateSchema),
+          activeView: activeViewId,
+        }
+        const query = new URLSearchParams(flattenObject(fullState)).toString()
+        navigate(`/${viewId}/${foundGene.id}?${query}`)
+      } else {
+        navigate(`/${viewId}/${foundGene.id}`)
+      }
+    },
+    [genes, setGenes, setActiveGeneId, setActiveViewId, navigate]
+  )
+
+  /**
    * Creates a tooltip element that will display detailed information when hovering over cells.
    * The tooltip is added to the document body and initially hidden.
    */
@@ -354,7 +432,9 @@ export const HeatMapViewObject = () => {
 
   /**
    * Main rendering effect that creates the D3.js heatmap visualization.
-   * This runs whenever the gene data, layout information, or theme changes.
+   * This runs whenever the gene data, layout information, theme, or click
+   * handler changes. handleCellClick is stable via useCallback so it will
+   * not cause unnecessary redraws.
    */
   useEffect(() => {
     if (!loadedGenes.length || !svgRef.current || !groupInfo) return
@@ -387,15 +467,37 @@ export const HeatMapViewObject = () => {
 
       /** Draw the four bracket lines connecting the icon to the data columns */
       ;[
-        [iconCenterX, branchStartY, groupStartX, branchStartY], /** Horizontal line to left edge */
-        [iconCenterX, branchStartY, groupEndX, branchStartY],   /** Horizontal line to right edge */
-        [groupStartX, branchStartY, groupStartX, branchEndY],   /** Left vertical bracket */
-        [groupEndX, branchStartY, groupEndX, branchEndY],       /** Right vertical bracket */
+        [
+          iconCenterX,
+          branchStartY,
+          groupStartX,
+          branchStartY,
+        ] /** Horizontal line to left edge */,
+        [
+          iconCenterX,
+          branchStartY,
+          groupEndX,
+          branchStartY,
+        ] /** Horizontal line to right edge */,
+        [
+          groupStartX,
+          branchStartY,
+          groupStartX,
+          branchEndY,
+        ] /** Left vertical bracket */,
+        [
+          groupEndX,
+          branchStartY,
+          groupEndX,
+          branchEndY,
+        ] /** Right vertical bracket */,
       ].forEach(([x1, y1, x2, y2]) => {
         svg
           .append('line')
-          .attr('x1', x1).attr('y1', y1)
-          .attr('x2', x2).attr('y2', y2)
+          .attr('x1', x1)
+          .attr('y1', y1)
+          .attr('x2', x2)
+          .attr('y2', y2)
           .attr('stroke', theme.palette.text.secondary)
           .attr('stroke-width', 1)
       })
@@ -452,9 +554,6 @@ export const HeatMapViewObject = () => {
           )
           const rectWidth = groupInfo.cellWidth
 
-          /** Find the maximum expression value for this database to normalize colors */
-          const dbMaxValue = d3.max(dbSamples, (p) => p.value) ?? 0
-
           /**
            * Render a cell for each possible sample slot in this database.
            * If a gene doesn't have data for a sample, render a grey placeholder.
@@ -472,10 +571,22 @@ export const HeatMapViewObject = () => {
               .attr(
                 'fill',
                 point
-                  ? getColor(point.value, point.group, point.control, theme, 'absolute')
-                  : '#ccc'
+                  ? getColor(
+                      point.value,
+                      point.group,
+                      point.control,
+                      theme,
+                      'absolute'
+                    )
+                  : '#ccc' /** Grey placeholder for missing data */
               )
+              /** Pointer cursor signals the cell is clickable */
               .style('cursor', point ? 'pointer' : 'default')
+              /** Navigate to the corresponding EFP view and sub-view on click */
+              .on('click', () => {
+                if (!point) return
+                handleCellClick(group, point.database, geneData.gene)
+              })
               /** Show detailed information on hover for data points */
               .on('mouseover', (e) => {
                 if (!point) return
@@ -510,13 +621,13 @@ export const HeatMapViewObject = () => {
         })
       })
     })
-  }, [loadedGenes, groupInfo, theme])
+  }, [loadedGenes, groupInfo, theme, handleCellClick])
 
   /**
    * Render the main component container with title, icon overlay, and SVG.
    * The SVG size is calculated based on the number of genes and layout constants.
-   * The wrapper div uses position:relative so IconOverlay can be positioned
-   * absolutely over the SVG without being inside the D3-managed SVG element.
+   * The outer div uses position:relative so both the loading overlay and
+   * IconOverlay can be positioned absolutely within it.
    */
   const svgHeight =
     ROW_HEIGHT * loadedGenes.length +
@@ -525,25 +636,34 @@ export const HeatMapViewObject = () => {
     ROW_SPACING * loadedGenes.length
 
   return (
-    <div style={{ width: '100%', height: '100%', overflowX: 'auto', position: 'relative' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        overflowX: 'auto',
+        position: 'relative',
+      }}
+    >
       <h2 style={{ marginBottom: '30px' }}>HeatMap View</h2>
 
       {/* Loading overlay — sits on top without hiding existing content */}
       {isLoading && (
-        <Box sx={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          zIndex: 10,
-          backgroundColor: 'background.paper',
-          borderRadius: 1,
-          px: 1.5,
-          py: 0.75,
-          boxShadow: 1,
-        }}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            zIndex: 10,
+            backgroundColor: 'background.paper',
+            borderRadius: 1,
+            px: 1.5,
+            py: 0.75,
+            boxShadow: 1,
+          }}
+        >
           <CircularProgress size={16} />
           <Typography variant='body2' color='text.secondary'>
             Loading {geneticElement?.id}...
@@ -551,13 +671,19 @@ export const HeatMapViewObject = () => {
         </Box>
       )}
 
-      <div style={{ position: 'relative', display: 'inline-block', minWidth: '100%' }}>
+      {/* Wrapper gives IconOverlay something to position against */}
+      <div
+        style={{
+          position: 'relative',
+          display: 'inline-block',
+          minWidth: '100%',
+        }}
+      >
         <IconOverlay groupPositions={groupInfo.groupPositions} />
         <svg ref={svgRef} width='100%' height={svgHeight} />
       </div>
     </div>
   )
-
 }
 
 // ---------------------------------------------------------------------------
@@ -569,6 +695,9 @@ export const HeatMapViewObject = () => {
  * Uses queryClient.fetchQuery with the same keys as PlantEFP, ExperimentEFP,
  * and CellEFP views so that React Query serves from cache when those views have
  * already loaded the data. Falls back to a real network fetch only when needed.
+ *
+ * Each data point stores its parent EFPGroup reference so the heatmap can use
+ * the same getColor function as the individual EFP views for consistent coloring.
  *
  * @param geneticElement - The gene for which to load expression data
  * @param loadEvent - Callback function to report loading progress
@@ -594,12 +723,19 @@ export const HeatMapViewerLoader = async (
   const [plant, experiment, cell] = await Promise.all([
     queryClient.fetchQuery({
       queryKey: [`plant-efp-${geneId}`],
-      queryFn: () => EFPViewerLoader(geneticElement, plantEFPs, plantEFPViews, () => {}),
+      queryFn: () =>
+        EFPViewerLoader(geneticElement, plantEFPs, plantEFPViews, () => {}),
       staleTime: Infinity,
     }),
     queryClient.fetchQuery({
       queryKey: [`experiment-efp-${geneId}`],
-      queryFn: () => EFPViewerLoader(geneticElement, experimentEFPs, experimentEFPViews, () => {}),
+      queryFn: () =>
+        EFPViewerLoader(
+          geneticElement,
+          experimentEFPs,
+          experimentEFPViews,
+          () => {}
+        ),
       staleTime: Infinity,
     }),
     queryClient.fetchQuery({
@@ -612,11 +748,15 @@ export const HeatMapViewerLoader = async (
   /** Report 100% loading completion */
   loadEvent(100)
 
-  
   /**
    * Transform the loaded data into the format expected by the heatmap component.
    * Each data source has a different structure, so we normalize them here.
+   * The full EFPGroup object is stored on each point so getColor can use
+   * group.min, group.max, and group.std for accurate color calculation.
    */
+  console.log('Plant EFP Data:', plant)
+  console.log('Experiment EFP Data:', experiment)
+  console.log('Cell EFP Data:', cell)
   return {
     geneData: {
       gene: geneId,
@@ -632,7 +772,7 @@ export const HeatMapViewerLoader = async (
                 value: t.mean,
                 sample: t.name,
                 database: plant.views?.[i]?.name ?? g.name,
-                group: g,
+                group: g /** Full group stored for getColor */,
                 control: sample.control ?? 1,
               }))
             )
@@ -649,7 +789,7 @@ export const HeatMapViewerLoader = async (
                 value: t.mean,
                 sample: t.name,
                 database: experiment.views?.[i]?.name ?? g.name,
-                group: g,
+                group: g /** Full group stored for getColor */,
                 control: sample.control ?? 1,
               }))
             )
@@ -657,16 +797,17 @@ export const HeatMapViewerLoader = async (
 
         /**
          * Cell data: Expression in specific cell types.
+         * Uses top-level viewData.control as there is no per-sample wrapper.
          */
         cell:
           cell?.viewData?.groups?.flatMap((g: EFPGroup) =>
-          g.tissues.map((t: EFPTissue) => ({
-            value: t.mean,
-            sample: t.name,
-            database: g.name,
-            group: g,
-            control: cell?.viewData?.control ?? 1,
-          }))
+            g.tissues.map((t: EFPTissue) => ({
+              value: t.mean,
+              sample: t.name,
+              database: g.name,
+              group: g /** Full group stored for getColor */,
+              control: cell?.viewData?.control ?? 1,
+            }))
           ) ?? [],
       },
     },
